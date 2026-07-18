@@ -1,8 +1,8 @@
 'use client'
 
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { Report, FoodShare } from '@/lib/types'
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 
@@ -32,6 +32,42 @@ function MapClickHandler({ onClick }: { onClick?: (lat: number, lng: number, add
     },
   })
   return null
+}
+
+function LocateButton() {
+  const map = useMap()
+  const [locating, setLocating] = useState(false)
+
+  const handleLocate = () => {
+    if (!navigator.geolocation) return alert('GPS를 지원하지 않는 브라우저입니다')
+    setLocating(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1.5 })
+        setLocating(false)
+      },
+      () => {
+        alert('위치를 가져올 수 없습니다. 위치 권한을 확인해주세요.')
+        setLocating(false)
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    )
+  }
+
+  return (
+    <div className="leaflet-top leaflet-right">
+      <div className="leaflet-control leaflet-bar">
+        <button
+          onClick={handleLocate}
+          disabled={locating}
+          className="w-9 h-9 bg-white flex items-center justify-center text-lg cursor-pointer hover:bg-gray-100 border-b"
+          title="내 위치"
+        >
+          {locating ? '⏳' : '📍'}
+        </button>
+      </div>
+    </div>
+  )
 }
 
 function makeIcon(emoji: string) {
@@ -89,6 +125,7 @@ export default function Map({ reports, foodShares, onClick, height = '100%' }: P
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapClickHandler onClick={onClick} />
+        <LocateButton />
         {items.map(item => (
           <Marker key={item.id} position={[item.lat, item.lng]} icon={item.icon}>
             <Popup>
