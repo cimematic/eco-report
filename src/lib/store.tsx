@@ -13,6 +13,7 @@ import {
   addDoc,
   doc,
   updateDoc,
+  deleteDoc,
   Timestamp,
   limit,
 } from 'firebase/firestore'
@@ -33,6 +34,8 @@ interface AppContextType extends AppState {
   addFoodShare: (food: Omit<FoodShare, 'id' | 'userId' | 'nickname' | 'createdAt' | 'status'>) => Promise<void>
   buyFood: (foodId: string) => Promise<boolean>
   addPoints: (amount: number) => void
+  deleteReport: (id: string) => Promise<void>
+  deleteFoodShare: (id: string) => Promise<void>
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -268,10 +271,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUser(prev => prev ? { ...prev, points: prev.points + amount } : prev)
   }
 
+  const deleteReport = async (id: string) => {
+    if (!db || !isFirebaseReady) return
+    try {
+      await deleteDoc(doc(db, 'reports', id))
+    } catch (e) {
+      console.error('Failed to delete report:', e)
+    }
+  }
+
+  const deleteFoodShare = async (id: string) => {
+    if (!db || !isFirebaseReady) return
+    try {
+      await deleteDoc(doc(db, 'foodShares', id))
+    } catch (e) {
+      console.error('Failed to delete food share:', e)
+    }
+  }
+
   return (
     <AppContext.Provider value={{
       user, reports, foodShares, isLoading, isFirebaseReady,
-      login, logout, addReport, addFoodShare, buyFood, addPoints,
+      login, logout, addReport, addFoodShare, buyFood, addPoints, deleteReport, deleteFoodShare,
     }}>
       {children}
     </AppContext.Provider>

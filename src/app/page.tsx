@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import { useApp } from '@/lib/store'
 import ReportForm from '@/components/ReportForm'
@@ -9,6 +9,7 @@ import MissionBanner from '@/components/MissionBanner'
 import ReportCard from '@/components/ReportCard'
 import FoodCard from '@/components/FoodCard'
 import DistrictCards from '@/components/DistrictCard'
+import AdminPanel from '@/components/AdminPanel'
 
 const Map = dynamic(() => import('@/components/Map'), { ssr: false })
 
@@ -19,6 +20,8 @@ export default function Home() {
   const [clickPos, setClickPos] = useState<{ lat: number; lng: number; address?: string } | null>(null)
   const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number } | null>(null)
   const [tab, setTab] = useState<'map' | 'list'>('map')
+  const [showAdmin, setShowAdmin] = useState(false)
+  const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const recentItems = [
     ...reports.slice(0, 3).map(r => ({ type: 'report' as const, data: r })),
@@ -47,7 +50,12 @@ export default function Home() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">에코리포트</h1>
+        <h1
+          className="text-xl font-bold select-none"
+          onPointerDown={() => { pressTimer.current = setTimeout(() => setShowAdmin(true), 800) }}
+          onPointerUp={() => { if (pressTimer.current) clearTimeout(pressTimer.current) }}
+          onPointerLeave={() => { if (pressTimer.current) clearTimeout(pressTimer.current) }}
+        >에코리포트</h1>
         <div className="flex gap-2">
           <button
             onClick={() => {
@@ -143,6 +151,8 @@ export default function Home() {
           onClose={() => setShowFoodForm(false)}
         />
       )}
+
+      {showAdmin && <AdminPanel onClose={() => setShowAdmin(false)} />}
     </div>
   )
 }
