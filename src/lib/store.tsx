@@ -39,6 +39,7 @@ interface AppContextType extends AppState {
   addPoints: (amount: number) => void
   deleteReport: (id: string) => Promise<void>
   deleteFoodShare: (id: string) => Promise<void>
+  toggleReportStatus: (id: string) => Promise<void>
   createChat: (foodId: string, sellerId: string, sellerNickname: string, foodProductName: string) => Promise<string>
   sendMessage: (chatId: string, text: string) => Promise<void>
 }
@@ -306,6 +307,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const toggleReportStatus = async (id: string) => {
+    if (!user || !db || !isFirebaseReady) return
+    const report = reports.find(r => r.id === id)
+    if (!report) return
+    const newStatus = report.status === 'open' ? 'resolved' : 'open'
+    try {
+      await updateDoc(doc(db, 'reports', id), { status: newStatus })
+    } catch (e) {
+      console.error('Failed to toggle report status:', e)
+    }
+  }
+
   const createChat = async (foodId: string, sellerId: string, sellerNickname: string, foodProductName: string): Promise<string> => {
     if (!user || !db || !isFirebaseReady) return ''
     const existing = chats.find(c => c.foodId === foodId && c.buyerId === user.id)
@@ -352,7 +365,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     <AppContext.Provider value={{
       user, reports, foodShares, chats, isLoading, isFirebaseReady,
       login, logout, addReport, addFoodShare, buyFood, addPoints, deleteReport, deleteFoodShare,
-      createChat, sendMessage,
+      toggleReportStatus, createChat, sendMessage,
     }}>
       {children}
     </AppContext.Provider>

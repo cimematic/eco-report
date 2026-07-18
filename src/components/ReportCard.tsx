@@ -1,6 +1,7 @@
 'use client'
 
 import { Report } from '@/lib/types'
+import { useApp } from '@/lib/store'
 
 const typeIcon: Record<string, string> = {
   trash: '🗑️',
@@ -19,6 +20,9 @@ interface Props {
 }
 
 export default function ReportCard({ report }: Props) {
+  const { user, toggleReportStatus } = useApp()
+  const isAuthor = user?.id === report.userId
+
   return (
     <div className="bg-white rounded-xl border border-gray-100 p-4 shadow-sm">
       <div className="flex items-start gap-3">
@@ -31,6 +35,11 @@ export default function ReportCard({ report }: Props) {
             {report.severity && (
               <span className="text-xs text-gray-400"> severity {report.severity}</span>
             )}
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-medium ${
+              report.status === 'resolved' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'
+            }`}>
+              {report.status === 'resolved' ? '✅ 해결됨' : '🟡 미해결'}
+            </span>
           </div>
           {report.description && (
             <p className="text-sm text-gray-700 mt-1">{report.description}</p>
@@ -57,6 +66,18 @@ export default function ReportCard({ report }: Props) {
                 </span>
               ))}
             </div>
+          )}
+          {isAuthor && (
+            <button
+              onClick={() => toggleReportStatus(report.id)}
+              className={`mt-2 text-xs px-3 py-1.5 rounded-lg transition-colors ${
+                report.status === 'resolved'
+                  ? 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  : 'bg-green-50 text-green-600 hover:bg-green-100'
+              }`}
+            >
+              {report.status === 'resolved' ? '↩ 되돌리기' : '✅ 해결 완료'}
+            </button>
           )}
         </div>
       </div>

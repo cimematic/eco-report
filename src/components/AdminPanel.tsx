@@ -6,7 +6,7 @@ import { useApp } from '@/lib/store'
 const ADMIN_CODE = '0417'
 
 export default function AdminPanel({ onClose }: { onClose: () => void }) {
-  const { reports, foodShares, deleteReport, deleteFoodShare } = useApp()
+  const { reports, foodShares, deleteReport, deleteFoodShare, toggleReportStatus } = useApp()
   const [code, setCode] = useState('')
   const [unlocked, setUnlocked] = useState(false)
   const [error, setError] = useState('')
@@ -75,25 +75,44 @@ export default function AdminPanel({ onClose }: { onClose: () => void }) {
             )}
 
             {reports.map(r => (
-              <div key={r.id} className="border rounded-xl p-3 flex gap-3 items-start">
+              <div key={r.id} className="border rounded-xl p-3 flex gap-2 items-start">
                 <div className="flex-1 min-w-0 text-sm">
-                  <p className="font-medium truncate">{r.nickname}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium truncate">{r.nickname}</p>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
+                      r.status === 'resolved' ? 'bg-green-50 text-green-600' : 'bg-yellow-50 text-yellow-600'
+                    }`}>
+                      {r.status === 'resolved' ? '✅ 해결됨' : '🟡 미해결'}
+                    </span>
+                  </div>
                   <p className="text-gray-500 truncate">{r.address || '주소 없음'}</p>
                   <p className="text-gray-700 truncate">{r.description}</p>
                 </div>
-                <button
-                  onClick={() => handleDeleteReport(r.id)}
-                  className="text-red-500 text-xs shrink-0 border border-red-300 rounded-lg px-2.5 py-1 hover:bg-red-50"
-                >
-                  삭제
-                </button>
+                <div className="flex gap-1.5 shrink-0">
+                  <button
+                    onClick={() => toggleReportStatus(r.id)}
+                    className={`text-xs rounded-lg px-2.5 py-1 border ${
+                      r.status === 'resolved'
+                        ? 'text-gray-500 border-gray-200 hover:bg-gray-50'
+                        : 'text-green-600 border-green-200 hover:bg-green-50'
+                    }`}
+                  >
+                    {r.status === 'resolved' ? '되돌리기' : '해결'}
+                  </button>
+                  <button
+                    onClick={() => handleDeleteReport(r.id)}
+                    className="text-red-500 text-xs shrink-0 border border-red-300 rounded-lg px-2.5 py-1 hover:bg-red-50"
+                  >
+                    삭제
+                  </button>
+                </div>
               </div>
             ))}
 
             {foodShares.map(f => (
               <div key={f.id} className="border rounded-xl p-3 flex gap-3 items-start">
                 <div className="flex-1 min-w-0 text-sm">
-                  <p className="font-medium truncate">{f.nickname}</p>
+                  <p className="font-medium truncate">{f.productName}</p>
                   <p className="text-gray-500 truncate">{f.address || '주소 없음'}</p>
                   <p className="text-gray-700 truncate">{f.description}</p>
                   <span className="text-xs text-gray-400">{f.price}P</span>
