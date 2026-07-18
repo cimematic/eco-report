@@ -108,7 +108,7 @@ function cleanData(obj: Record<string, any>): Record<string, any> {
 function toDate(ts: any): number {
   if (ts?.toMillis) return ts.toMillis()
   if (typeof ts === 'number') return ts
-  return Date.now()
+  return 0
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -176,7 +176,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     const unsubChats = onSnapshot(chatsQuery, (snapshot) => {
       const list: Chat[] = snapshot.docs.map(d => {
         const d2 = d.data() as any
-        return { ...d2, id: d.id, createdAt: toDate(d2.createdAt), lastMessageAt: toDate(d2.lastMessageAt) } as Chat
+        return { ...d2, id: d.id, createdAt: toDate(d2.createdAt), lastMessageAt: toDate(d2.lastMessageAt), lastReadBySeller: d2.lastReadBySeller != null ? toDate(d2.lastReadBySeller) : undefined, lastReadByBuyer: d2.lastReadByBuyer != null ? toDate(d2.lastReadByBuyer) : undefined } as Chat
       })
       setChats(list)
     }, (err) => {
