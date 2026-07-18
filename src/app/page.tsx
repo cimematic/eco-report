@@ -53,16 +53,7 @@ export default function Home() {
             onClick={() => {
               if (!navigator.geolocation) { alert('GPS를 지원하지 않는 브라우저입니다'); return }
               navigator.geolocation.getCurrentPosition(
-                (pos) => {
-                  const { latitude: lat, longitude: lng } = pos.coords
-                  setFlyToTarget({ lat, lng })
-                  setClickPos({ lat, lng, address: '' })
-                  setShowReportForm(true)
-                  fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ko`)
-                    .then(r => r.json())
-                    .then(d => setClickPos({ lat, lng, address: d.display_name || '' }))
-                    .catch(() => {})
-                },
+                (pos) => setFlyToTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
                 () => alert('위치를 가져올 수 없습니다'),
                 { enableHighAccuracy: false, timeout: 15000 }
               )
