@@ -21,6 +21,7 @@ export default function Home() {
   const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number } | null>(null)
   const [tab, setTab] = useState<'map' | 'list'>('map')
   const [showAdmin, setShowAdmin] = useState(false)
+  const [userLocation, setUserLocation] = useState<{ lat: number; lng: number } | null>(null)
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const recentItems = [
@@ -61,8 +62,17 @@ export default function Home() {
             onClick={() => {
               if (!navigator.geolocation) { alert('GPS를 지원하지 않는 브라우저입니다'); return }
               navigator.geolocation.getCurrentPosition(
-                (pos) => setFlyToTarget({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-                () => alert('위치를 가져올 수 없습니다'),
+                (pos) => {
+                  const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude }
+                  setUserLocation(loc)
+                  setFlyToTarget(loc)
+                },
+                (err) => {
+                  if (err.code === 1) alert('위치 권한이 거부되었습니다')
+                  else if (err.code === 2) alert('위치를 찾을 수 없습니다')
+                  else if (err.code === 3) alert('위치 요청 시간이 초과되었습니다')
+                  else alert('위치를 가져올 수 없습니다')
+                },
                 { enableHighAccuracy: false, timeout: 15000 }
               )
             }}
@@ -110,6 +120,7 @@ export default function Home() {
             reports={reports}
             foodShares={foodShares}
             flyToTarget={flyToTarget}
+            userLocation={userLocation}
             onClick={(lat, lng, addr) => {
               setClickPos({ lat, lng, address: addr || '' })
               setShowReportForm(true)

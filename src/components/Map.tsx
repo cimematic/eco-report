@@ -12,6 +12,7 @@ interface Props {
   onClick?: (lat: number, lng: number, address?: string) => void
   height?: string
   flyToTarget?: { lat: number; lng: number } | null
+  userLocation?: { lat: number; lng: number } | null
 }
 
 function MapClickHandler({ onClick }: { onClick?: (lat: number, lng: number, address?: string) => void }) {
@@ -48,6 +49,38 @@ function MapController({ flyToTarget }: { flyToTarget?: { lat: number; lng: numb
   return null
 }
 
+function UserLocationMarker({ location }: { location: { lat: number; lng: number } | null }) {
+  const map = useMap()
+  const markerRef = useRef<L.CircleMarker | null>(null)
+
+  useEffect(() => {
+    if (!location) {
+      if (markerRef.current) {
+        markerRef.current.remove()
+        markerRef.current = null
+      }
+      return
+    }
+    if (markerRef.current) {
+      markerRef.current.setLatLng([location.lat, location.lng])
+      return
+    }
+    const marker = L.circleMarker([location.lat, location.lng], {
+      radius: 10,
+      fillColor: '#3b82f6',
+      color: '#fff',
+      weight: 3,
+      opacity: 1,
+      fillOpacity: 0.6,
+    })
+    marker.bindPopup('📍 내 위치')
+    marker.addTo(map)
+    markerRef.current = marker
+  }, [location, map])
+
+  return null
+}
+
 function makeIcon(emoji: string) {
   return L.divIcon({
     html: `<span style="font-size:1.5rem;line-height:1">${emoji}</span>`,
@@ -69,7 +102,7 @@ type PopupItem = {
   description: string; photoUrl?: string; nickname: string; meta?: string
 }
 
-export default function Map({ reports, foodShares, onClick, height = '100%', flyToTarget }: Props) {
+export default function Map({ reports, foodShares, onClick, height = '100%', flyToTarget, userLocation }: Props) {
   const items = useMemo(() => {
     const result: PopupItem[] = []
     for (const r of reports) {
@@ -104,6 +137,7 @@ export default function Map({ reports, foodShares, onClick, height = '100%', fly
         />
         <MapClickHandler onClick={onClick} />
         <MapController flyToTarget={flyToTarget} />
+        <UserLocationMarker location={userLocation ?? null} />
         {items.map(item => (
           <Marker key={item.id} position={[item.lat, item.lng]} icon={item.icon}>
             <Popup>

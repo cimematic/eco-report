@@ -41,23 +41,29 @@ export default function FoodForm({ lat, lng, onClose }: Props) {
   const handleSubmit = async () => {
     if (!canSubmit || !lat || !lng) return
     setSubmitting(true)
-    await addFoodShare({
-      productName: productName.trim(),
-      expirationDate,
-      address: address.trim(),
-      lat,
-      lng,
-      price,
-      photoUrl: photoUrl || undefined,
-      storeBrand: storeBrand || undefined,
-      originalPrice: originalPrice > 0 ? originalPrice : undefined,
-      allergens: allergens.trim() || undefined,
-      storageMethod: storageMethod || undefined,
-      pickupDeadline: pickupDeadline || undefined,
-      description: description.trim() || undefined,
-    })
-    setSubmitting(false)
-    onClose()
+    try {
+      await addFoodShare({
+        productName: productName.trim(),
+        expirationDate,
+        address: address.trim(),
+        lat,
+        lng,
+        price,
+        photoUrl: photoUrl || undefined,
+        storeBrand: storeBrand || undefined,
+        originalPrice: originalPrice > 0 ? originalPrice : undefined,
+        allergens: allergens.trim() || undefined,
+        storageMethod: storageMethod || undefined,
+        pickupDeadline: pickupDeadline || undefined,
+        description: description.trim() || undefined,
+      })
+      onClose()
+    } catch (e) {
+      console.error('FoodForm submit error:', e)
+      alert('등록 중 오류가 발생했습니다. 다시 시도해주세요.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   const handleAddressSelect = useCallback((addr: string) => {
