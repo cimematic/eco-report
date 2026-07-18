@@ -1,14 +1,51 @@
 'use client'
 
+import { useState } from 'react'
 import { useApp } from '@/lib/store'
+
+function hashPin(pin: string): string {
+  return btoa(pin)
+}
 
 export default function ProfilePage() {
   const { user, reports, foodShares } = useApp()
+  const [showPinChange, setShowPinChange] = useState(false)
+  const [oldPin, setOldPin] = useState('')
+  const [newPin, setNewPin] = useState('')
+  const [newPinConfirm, setNewPinConfirm] = useState('')
+  const [pinMsg, setPinMsg] = useState('')
 
   if (!user) return null
 
   const myReports = reports.filter(r => r.userId === user.id)
   const myFoods = foodShares.filter(f => f.userId === user.id)
+
+  const handleChangePin = () => {
+    if (!user.pinHash) return
+    if (hashPin(oldPin) !== user.pinHash) {
+      setPinMsg('현재 PIN이 일치하지 않습니다')
+      return
+    }
+    if (newPin.length !== 4) {
+      setPinMsg('새 PIN은 4자리 숫자여야 합니다')
+      return
+    }
+    if (newPin !== newPinConfirm) {
+      setPinMsg('새 PIN이 일치하지 않습니다')
+      return
+    }
+
+    const updated = { ...user, pinHash: hashPin(newPin) }
+    localStorage.setItem('eco-report-user', JSON.stringify(updated))
+    const auth = JSON.parse(localStorage.getItem('eco-report-auth') || '{}')
+    if (auth[user.nickname]) {
+      auth[user.nickname] = { ...auth[user.nickname], ...updated }
+      localStorage.setItem('eco-report-auth', JSON.stringify(auth))
+    }
+    setPinMsg('PIN이 변경되었습니다 ✅')
+    setOldPin(''); setNewPin(''); setNewPinConfirm('')
+    setTimeout(() => setShowPinChange(false), 1500)
+  }
 
   return (
     <div className="p-4 space-y-4">
@@ -35,6 +72,39 @@ export default function ProfilePage() {
           <div className="text-xs text-gray-500">내 나눔</div>
         </div>
       </div>
+
+      {showPinChange ? (
+        <div className="bg-white rounded-xl p-4 shadow-sm space-y-3">
+          <h3 className="text-sm font-semibold">🔐 PIN 변경</h3>
+          <input
+            type="password" inputMode="numeric" placeholder="현재 PIN"
+            value={oldPin} maxLength={4}
+            onChange={e => { setOldPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinMsg('') }}
+            className="w-full border rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+          <input
+            type="password" inputMode="numeric" placeholder="새 PIN (4자리 숫자)"
+            value={newPin} maxLength={4}
+            onChange={e => { setNewPin(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinMsg('') }}
+            className="w-full border rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+          <input
+            type="password" inputMode="numeric" placeholder="새 PIN 한 번 더"
+            value={newPinConfirm} maxLength={4}
+            onChange={e => { setNewPinConfirm(e.target.value.replace(/\D/g, '').slice(0, 4)); setPinMsg('') }}
+            className="w-full border rounded-lg px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
+          />
+          {pinMsg && <p className={`text-sm text-center ${pinMsg.includes('✅') ? 'text-emerald-600' : 'text-red-500'}`}>{pinMsg}</p>}
+          <div className="flex gap-2">
+            <button onClick={() => setShowPinChange(false)} className="flex-1 border border-gray-200 rounded-lg py-2 text-sm text-gray-600">취소</button>
+            <button onClick={handleChangePin} disabled={!oldPin || !newPin || !newPinConfirm} className="flex-1 bg-emerald-600 text-white rounded-lg py-2 text-sm disabled:opacity-40">변경</button>
+          </div>
+        </div>
+      ) : (
+        <button onClick={() => setShowPinChange(true)} className="w-full bg-white rounded-xl p-4 shadow-sm text-sm text-gray-600 text-left">
+          🔐 PIN 변경
+        </button>
+      )}
 
       <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
         <h3 className="text-sm font-semibold mb-2">🏆 업적</h3>

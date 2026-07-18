@@ -39,6 +39,7 @@ export interface User {
   nickname: string
   points: number
   avatar?: string
+  pinHash?: string
   createdAt: number
 }
 

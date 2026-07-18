@@ -27,7 +27,7 @@ interface AppState {
 }
 
 interface AppContextType extends AppState {
-  login: (nickname: string) => void
+  login: (nickname: string, pin: string) => void
   logout: () => void
   addReport: (report: Omit<Report, 'id' | 'userId' | 'nickname' | 'createdAt'>) => Promise<void>
   addFoodShare: (food: Omit<FoodShare, 'id' | 'userId' | 'nickname' | 'createdAt' | 'status'>) => Promise<void>
@@ -37,6 +37,7 @@ interface AppContextType extends AppState {
 
 const AppContext = createContext<AppContextType | null>(null)
 const SESSION_KEY = 'eco-report-user'
+const AUTH_KEY = 'eco-report-auth'
 
 function loadUser(): User | null {
   if (typeof window === 'undefined') return null
@@ -49,8 +50,39 @@ function loadUser(): User | null {
 
 function saveUser(user: User | null) {
   if (typeof window === 'undefined') return
-  if (user) localStorage.setItem(SESSION_KEY, JSON.stringify(user))
-  else localStorage.removeItem(SESSION_KEY)
+  if (user) {
+    localStorage.setItem(SESSION_KEY, JSON.stringify(user))
+    saveAuthUser(user)
+  } else {
+    localStorage.removeItem(SESSION_KEY)
+  }
+}
+
+function loadAuth(): Record<string, User> {
+  if (typeof window === 'undefined') return {}
+  try {
+    return JSON.parse(localStorage.getItem(AUTH_KEY) || '{}')
+  } catch { return {} }
+}
+
+function saveAuth(auth: Record<string, User>) {
+  if (typeof window === 'undefined') return
+  localStorage.setItem(AUTH_KEY, JSON.stringify(auth))
+}
+
+function saveAuthUser(user: User) {
+  const auth = loadAuth()
+  auth[user.nickname] = { ...auth[user.nickname], ...user }
+  saveAuth(auth)
+}
+
+function hashPin(pin: string): string {
+  return btoa(pin)
+}
+
+function findAuthUser(nickname: string): User | undefined {
+  const auth = loadAuth()
+  return auth[nickname]
 }
 
 function cleanData(obj: Record<string, any>): Record<string, any> {
@@ -132,14 +164,28 @@ export function AppProvider({ children }: { children: ReactNode }) {
     return () => { unsubReports(); unsubFood() }
   }, [])
 
-  const login = (nickname: string) => {
-    const newUser: User = {
-      id: uuidv4(),
-      nickname,
-      points: 100,
-      createdAt: Date.now(),
+  const login = (nickname: string, pin: string) => {
+    const existing = findAuthUser(nickname)
+    const hashed = hashPin(pin)
+
+    if (existing) {
+      if (existing.pinHash !== hashed) {
+        throw new Error('PIN이 일치하지 않습니다')
+      }
+      const restored: User = {
+        ...existing,
+      }
+      setUser(restored)
+    } else {
+      const newUser: User = {
+        id: uuidv4(),
+        nickname,
+        points: 100,
+        pinHash: hashed,
+        createdAt: Date.now(),
+      }
+      setUser(newUser)
     }
-    setUser(newUser)
   }
 
   const logout = () => {
