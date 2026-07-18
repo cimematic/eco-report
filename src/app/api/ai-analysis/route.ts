@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 
+const OR_API = 'https://openrouter.ai/api/v1/chat/completions'
+
 export async function POST(req: Request) {
   try {
     const { imageUrl } = await req.json()
@@ -8,19 +10,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: '이미지 URL이 필요합니다' }, { status: 400 })
     }
 
-    const geminiKey = process.env.GOOGLE_GEMINI_KEY
-    if (!geminiKey) {
+    const apiKey = process.env.OPENROUTER_API_KEY
+    const hasApiKey = apiKey && apiKey.startsWith('sk-or-')
+
+    if (!hasApiKey) {
       return NextResponse.json({
-        tags: ['AI 키 미설정'],
+        tags: ['API 키 미설정'],
         severity: 1,
-        description: 'GOOGLE_GEMINI_KEY를 .env.local에 설정해주세요',
+        description: 'OPENROUTER_API_KEY를 .env.local에 설정해주세요',
       })
     }
-
-    const imageRes = await fetch(imageUrl)
-    const imageBuffer = await imageRes.arrayBuffer()
-    const base64 = Buffer.from(imageBuffer).toString('base64')
-    const mimeType = imageRes.headers.get('content-type') || 'image/jpeg'
 
     const prompt = `이 이미지를 분석해주세요. 쓰레기 무단투기, 위험한 시설물, 환경 문제 등이 보이면 알려주세요.
 아래 JSON 형식으로만 응답해주세요 (다른 말 없이 JSON만):
@@ -30,30 +29,31 @@ export async function POST(req: Request) {
   "description": "30자 이내의 간단한 설명"
 }`
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{
-            parts: [
-              { text: prompt },
-              { inlineData: { mimeType, data: base64 } },
-            ],
-          }],
-          generationConfig: {
-            temperature: 0.3,
-            responseMimeType: 'application/json',
-          },
-        }),
+    const res = await fetch(OR_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
       },
-    )
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'text', text: prompt },
+            { type: 'image_url', image_url: { url: imageUrl } },
+          ],
+        }],
+        temperature: 0.3,
+        max_tokens: 300,
+        response_format: { type: 'json_object' },
+      }),
+    })
 
     const data = await res.json()
 
     if (data.error) {
-      console.error('Gemini API error:', data.error)
+      console.error('OpenRouter error:', data.error)
       return NextResponse.json({
         tags: ['분석 중 오류'],
         severity: 1,
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
       })
     }
 
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+    const text = data?.choices?.[0]?.message?.content || '{}'
     const parsed = JSON.parse(text)
 
     return NextResponse.json({

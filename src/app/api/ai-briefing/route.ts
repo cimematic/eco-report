@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 
+const OR_API = 'https://openrouter.ai/api/v1/chat/completions'
+
 export async function POST(req: Request) {
   let reports: any[] = [], foodShares: any[] = []
   try {
@@ -11,16 +13,18 @@ export async function POST(req: Request) {
     const blindspotCount = reports.filter((r: any) => r.type === 'blindspot' && r.status === 'open').length
     const foodCount = foodShares.filter((f: any) => f.status === 'available').length
 
-    const geminiKey = process.env.GOOGLE_GEMINI_KEY
-    if (!geminiKey) {
+    const apiKey = process.env.OPENROUTER_API_KEY
+    const hasApiKey = apiKey && apiKey.startsWith('sk-or-')
+
+    if (!hasApiKey) {
       return NextResponse.json({
         summary: `오늘의 리포트입니다. 쓰레기 제보 ${trashCount}건, 사각지대 ${blindspotCount}건, 음식 나눔 ${foodCount}건이 등록되었습니다.`,
         trashCount,
         blindspotCount,
         foodCount,
-        topReporter: 'AI 키 미설정',
+        topReporter: 'API 키 미설정',
         hotDistrict: '분석 불가',
-        tips: 'GOOGLE_GEMINI_KEY를 .env.local에 설정해주세요',
+        tips: 'OPENROUTER_API_KEY를 .env.local에 설정해주세요',
       })
     }
 
@@ -46,25 +50,24 @@ ${JSON.stringify(foodShares.slice(0, 10))}
   "tips": "환경 관련 실천 팁 한 문장"
 }`
 
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [{ parts: [{ text: prompt }] }],
-          generationConfig: {
-            temperature: 0.7,
-            responseMimeType: 'application/json',
-          },
-        }),
+    const res = await fetch(OR_API, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
       },
-    )
+      body: JSON.stringify({
+        model: 'openai/gpt-4o-mini',
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+      }),
+    })
 
     const data = await res.json()
 
     if (data.error) {
-      console.error('Gemini API error:', data.error)
+      console.error('OpenRouter error:', data.error)
       return NextResponse.json({
         summary: `데이터 분석 중입니다. 쓰레기 ${trashCount}건, 사각지대 ${blindspotCount}건, 음식나눔 ${foodCount}건이 등록되었습니다. (AI: ${data.error.message || '일시적 오류'})`,
         trashCount,
@@ -76,7 +79,7 @@ ${JSON.stringify(foodShares.slice(0, 10))}
       })
     }
 
-    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}'
+    const text = data?.choices?.[0]?.message?.content || '{}'
     const parsed = JSON.parse(text)
 
     return NextResponse.json({
