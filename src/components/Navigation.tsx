@@ -7,7 +7,7 @@ import { useApp } from '@/lib/store'
 const tabs = [
   { href: '/', label: '지도', icon: '🗺️' },
   { href: '/report', label: '제보', icon: '📸' },
-  { href: '/food', label: '나눔', icon: '🍲' },
+  { href: '/food', label: '나눔', icon: '🏪' },
   { href: '/briefing', label: '브리핑', icon: '🤖' },
 ]
 

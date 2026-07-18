@@ -43,11 +43,19 @@ const blindspotDescriptions = [
   '야간 조명이 전혀 없어서 위험해요', '공사장 안전펜스가 없어 위험해요',
 ]
 
-const foodTitles = [
-  '김치찌개 3인분', '라면 5봉지', '통밀빵 2개',
-  '사과 6개', '즉석밥 10개', '생수 1.5L 6팩',
-  '케익 1판', '과일바구니', '떡볶이 떡 2kg',
-  '콩나물 2봉', '두부 3모', '요거트 4개',
+const foodItems = [
+  { productName: '삼각김밥 참치마요', brand: 'GS25', price: 1200, storage: '냉장' },
+  { productName: '도시락 제육덮밥', brand: 'CU', price: 4500, storage: '냉장' },
+  { productName: '샌드위치 햄치즈', brand: '7-Eleven', price: 3200, storage: '냉장' },
+  { productName: '바나나 우유 3팩', brand: 'GS25', price: 2400, storage: '냉장' },
+  { productName: '삼각김밥 소불고기', brand: 'CU', price: 1300, storage: '상온' },
+  { productName: '즉석밥 �반 210g x3', brand: 'Emart24', price: 3600, storage: '상온' },
+  { productName: '요구르트 4입', brand: 'GS25', price: 2000, storage: '냉장' },
+  { productName: '컵라면 육개장', brand: 'Ministop', price: 1500, storage: '상온' },
+  { productName: '생수 2L 6팩', brand: 'CU', price: 4800, storage: '상온' },
+  { productName: '초코파이 6입', brand: '7-Eleven', price: 3000, storage: '상온' },
+  { productName: '김밥 야채', brand: 'GS25', price: 2500, storage: '냉장' },
+  { productName: '핫바 치즈', brand: 'CU', price: 1500, storage: '상온' },
 ]
 
 export function generateSeedData(): { reports: Report[]; foodShares: FoodShare[] } {
@@ -79,17 +87,23 @@ export function generateSeedData(): { reports: Report[]; foodShares: FoodShare[]
 
     if (i < 8) {
       const fs = spots[(i + 1) % spots.length]
+      const item = foodItems[i % foodItems.length]
+      const daysUntilExp = Math.floor(Math.random() * 3) + 1
+      const exp = new Date(now + daysUntilExp * DAY)
       foodShares.push({
         id: `seed-food-${i}`,
         userId: `seed-user-${(i + 3) % 6}`,
         nickname: nicknames[(i + 3) % nicknames.length],
-        title: foodTitles[i % foodTitles.length],
-        description: '냉장고 정리 중 나눔합니다. 직접 픽업 가능하신 분 연락주세요.',
-        photoUrl: '',
-        price: 10 + i * 5,
+        productName: item.productName,
+        expirationDate: exp.toISOString().slice(0, 10),
+        address: fs.address,
         lat: fs.lat,
         lng: fs.lng,
-        address: fs.address,
+        price: 10 + i * 5,
+        photoUrl: '',
+        storeBrand: item.brand,
+        originalPrice: item.price,
+        storageMethod: item.storage,
         status: i < 2 ? 'sold' : 'available',
         buyerId: i < 2 ? `seed-buyer-${i}` : undefined,
         createdAt: now - daysAgo * DAY - Math.floor(Math.random() * 7200000),

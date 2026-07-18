@@ -22,15 +22,42 @@ export interface FoodShare {
   id: string
   userId: string
   nickname: string
-  title: string
-  description: string
-  photoUrl?: string
-  price: number
+  productName: string
+  expirationDate: string
+  address: string
   lat: number
   lng: number
-  address: string
+  price: number
+  photoUrl?: string
+  storeBrand?: string
+  originalPrice?: number
+  allergens?: string
+  storageMethod?: string
+  pickupDeadline?: string
+  description?: string
   status: 'available' | 'sold'
   buyerId?: string
+  createdAt: number
+}
+
+export interface Chat {
+  id: string
+  foodId: string
+  foodProductName: string
+  sellerId: string
+  sellerNickname: string
+  buyerId: string
+  buyerNickname: string
+  participants: string[]
+  lastMessage?: string
+  lastMessageAt?: number
+  createdAt: number
+}
+
+export interface ChatMessage {
+  id: string
+  senderId: string
+  text: string
   createdAt: number
 }
 

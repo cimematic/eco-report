@@ -87,7 +87,7 @@ export default function Map({ reports, foodShares, onClick, height = '100%', fly
       result.push({
         id: `f-${f.id}`, lat: f.lat, lng: f.lng,
         icon: ICONS.food,
-        title: `🍽️ ${f.title}`, address: f.address,
+        title: `🍽️ ${f.productName}`, address: f.address,
         description: f.description || '', photoUrl: f.photoUrl,
         nickname: f.nickname, meta: `${f.price}P`,
       })

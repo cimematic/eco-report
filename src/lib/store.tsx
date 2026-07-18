@@ -2,7 +2,7 @@
 
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { User, Report, FoodShare } from './types'
+import { User, Report, FoodShare, Chat, ChatMessage } from './types'
 import { useToast } from '@/components/Toast'
 import { db } from './firebase'
 import {
@@ -14,8 +14,10 @@ import {
   doc,
   updateDoc,
   deleteDoc,
+  getDocs,
   Timestamp,
   limit,
+  where,
 } from 'firebase/firestore'
 import { generateSeedData } from './seed'
 
@@ -23,6 +25,7 @@ interface AppState {
   user: User | null
   reports: Report[]
   foodShares: FoodShare[]
+  chats: Chat[]
   isLoading: boolean
   isFirebaseReady: boolean
 }
@@ -36,6 +39,8 @@ interface AppContextType extends AppState {
   addPoints: (amount: number) => void
   deleteReport: (id: string) => Promise<void>
   deleteFoodShare: (id: string) => Promise<void>
+  createChat: (foodId: string, sellerId: string, sellerNickname: string, foodProductName: string) => Promise<string>
+  sendMessage: (chatId: string, text: string) => Promise<void>
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -109,6 +114,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [reports, setReports] = useState<Report[]>([])
   const [foodShares, setFoodShares] = useState<FoodShare[]>([])
+  const [chats, setChats] = useState<Chat[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isFirebaseReady, setIsFirebaseReady] = useState(false)
 
@@ -164,7 +170,18 @@ export function AppProvider({ children }: { children: ReactNode }) {
       console.error('Firestore foodShares error:', err)
     })
 
-    return () => { unsubReports(); unsubFood() }
+    const chatsQuery = query(collection(db, 'chats'), orderBy('createdAt', 'desc'), limit(50))
+    const unsubChats = onSnapshot(chatsQuery, (snapshot) => {
+      const list: Chat[] = snapshot.docs.map(d => {
+        const d2 = d.data() as any
+        return { ...d2, id: d.id, createdAt: toDate(d2.createdAt), lastMessageAt: toDate(d2.lastMessageAt) } as Chat
+      })
+      setChats(list)
+    }, (err) => {
+      console.error('Firestore chats error:', err)
+    })
+
+    return () => { unsubReports(); unsubFood(); unsubChats() }
   }, [])
 
   const login = (nickname: string, pin: string) => {
@@ -254,7 +271,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
           buyerId: user.id,
         })
         setUser(prev => prev ? { ...prev, points: prev.points - food.price } : prev)
-        toast(`${food.title} 구매 완료!`, '🎉')
+        toast(`${food.productName} 구매 완료!`, '🎉')
         return true
       } catch (e) {
         console.error('Failed to buy food:', e)
@@ -289,10 +306,53 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const createChat = async (foodId: string, sellerId: string, sellerNickname: string, foodProductName: string): Promise<string> => {
+    if (!user || !db || !isFirebaseReady) return ''
+    const existing = chats.find(c => c.foodId === foodId && c.buyerId === user.id)
+    if (existing) return existing.id
+    try {
+      const ref = await addDoc(collection(db, 'chats'), {
+        foodId,
+        foodProductName,
+        sellerId,
+        sellerNickname,
+        buyerId: user.id,
+        buyerNickname: user.nickname,
+        participants: [sellerId, user.id],
+        createdAt: Timestamp.now(),
+      })
+      toast('채팅방이 개설되었습니다', '💬')
+      return ref.id
+    } catch (e) {
+      console.error('Failed to create chat:', e)
+      toast('채팅방 개설 실패', '❌')
+      return ''
+    }
+  }
+
+  const sendMessage = async (chatId: string, text: string) => {
+    if (!user || !db || !isFirebaseReady || !text.trim()) return
+    try {
+      await addDoc(collection(db, 'chats', chatId, 'messages'), {
+        senderId: user.id,
+        text: text.trim(),
+        createdAt: Timestamp.now(),
+      })
+      await updateDoc(doc(db, 'chats', chatId), {
+        lastMessage: text.trim(),
+        lastMessageAt: Timestamp.now(),
+      })
+    } catch (e) {
+      console.error('Failed to send message:', e)
+      toast('메시지 전송 실패', '❌')
+    }
+  }
+
   return (
     <AppContext.Provider value={{
-      user, reports, foodShares, isLoading, isFirebaseReady,
+      user, reports, foodShares, chats, isLoading, isFirebaseReady,
       login, logout, addReport, addFoodShare, buyFood, addPoints, deleteReport, deleteFoodShare,
+      createChat, sendMessage,
     }}>
       {children}
     </AppContext.Provider>
