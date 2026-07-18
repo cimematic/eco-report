@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useApp } from '@/lib/store'
 import ImageUpload from './ImageUpload'
 
@@ -10,18 +10,35 @@ interface Props {
   onClose: () => void
 }
 
+function openPostcode(onSelect: (addr: string) => void) {
+  if (typeof window === 'undefined') return
+  const win = window as any
+  if (!win.daum) {
+    const script = document.createElement('script')
+    script.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
+    script.onload = () => {
+      new win.daum.Postcode({ oncomplete: (d: any) => onSelect(d.address) }).open()
+    }
+    document.head.appendChild(script)
+  } else {
+    new win.daum.Postcode({ oncomplete: (d: any) => onSelect(d.address) }).open()
+  }
+}
+
 export default function FoodForm({ lat, lng, onClose }: Props) {
   const { addFoodShare, user } = useApp()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState(10)
   const [photoUrl, setPhotoUrl] = useState('')
+  const [address, setAddress] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   if (!user) return null
 
   const handleSubmit = async () => {
     if (!title.trim() || !lat || !lng) return
+    if (!address.trim()) return alert('주소를 선택해주세요')
     setSubmitting(true)
     await addFoodShare({
       title: title.trim(),
@@ -30,11 +47,15 @@ export default function FoodForm({ lat, lng, onClose }: Props) {
       photoUrl: photoUrl || undefined,
       lat,
       lng,
-      address: '',
+      address: address.trim(),
     } as any)
     setSubmitting(false)
     onClose()
   }
+
+  const handleAddressSearch = useCallback(() => {
+    openPostcode(addr => setAddress(addr))
+  }, [])
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
@@ -59,6 +80,21 @@ export default function FoodForm({ lat, lng, onClose }: Props) {
           className="w-full border rounded-lg px-4 py-3 mb-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400 resize-none"
         />
 
+        <div className="mb-3">
+          <div className="flex gap-2">
+            <div className="flex-1 border rounded-lg px-4 py-3 text-sm bg-gray-50 text-gray-700 truncate">
+              {address || '주소를 검색해주세요'}
+            </div>
+            <button
+              type="button"
+              onClick={handleAddressSearch}
+              className="bg-emerald-600 text-white px-4 rounded-lg text-sm font-medium shrink-0"
+            >
+              주소 검색
+            </button>
+          </div>
+        </div>
+
         <ImageUpload onImage={url => setPhotoUrl(url)} currentUrl={photoUrl} />
 
         <div className="flex items-center gap-3 mb-4">
@@ -76,7 +112,7 @@ export default function FoodForm({ lat, lng, onClose }: Props) {
         </div>
 
         <button
-          disabled={!title.trim() || submitting}
+          disabled={!title.trim() || !address.trim() || submitting}
           onClick={handleSubmit}
           className="w-full bg-emerald-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
         >

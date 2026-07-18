@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useApp } from '@/lib/store'
 import type { ReportType } from '@/lib/types'
 import ImageUpload from './ImageUpload'
@@ -15,6 +15,21 @@ const types: { value: ReportType; label: string; icon: string }[] = [
   { value: 'trash', label: '쓰레기 무단투기', icon: '🗑️' },
   { value: 'blindspot', label: '사각지대', icon: '⚠️' },
 ]
+
+function openPostcode(onSelect: (addr: string) => void) {
+  if (typeof window === 'undefined') return
+  const win = window as any
+  if (!win.daum) {
+    const script = document.createElement('script')
+    script.src = 'https://t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js'
+    script.onload = () => {
+      new win.daum.Postcode({ oncomplete: (d: any) => onSelect(d.address) }).open()
+    }
+    document.head.appendChild(script)
+  } else {
+    new win.daum.Postcode({ oncomplete: (d: any) => onSelect(d.address) }).open()
+  }
+}
 
 export default function ReportForm({ lat, lng, onClose }: Props) {
   const { addReport, user } = useApp()
@@ -31,12 +46,13 @@ export default function ReportForm({ lat, lng, onClose }: Props) {
 
   const handleSubmit = async () => {
     if (!lat || !lng) return
+    if (!address.trim()) return alert('주소를 선택해주세요')
     setSubmitting(true)
     await addReport({
       type,
       lat,
       lng,
-      address: address || '위치 확인 필요',
+      address: address.trim(),
       photoUrl: photoUrl || undefined,
       description: description || undefined,
       status: 'open',
@@ -44,6 +60,10 @@ export default function ReportForm({ lat, lng, onClose }: Props) {
     setSubmitting(false)
     onClose()
   }
+
+  const handleAddressSearch = useCallback(() => {
+    openPostcode(addr => setAddress(addr))
+  }, [])
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4">
@@ -89,12 +109,20 @@ export default function ReportForm({ lat, lng, onClose }: Props) {
               ))}
             </div>
 
-            <input
-              value={address}
-              onChange={e => setAddress(e.target.value)}
-              placeholder="주소 (선택)"
-              className="w-full border rounded-lg px-4 py-3 mb-3 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
-            />
+            <div className="mb-3">
+              <div className="flex gap-2">
+                <div className="flex-1 border rounded-lg px-4 py-3 text-sm bg-gray-50 text-gray-700 truncate">
+                  {address || '주소를 검색해주세요'}
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAddressSearch}
+                  className="bg-emerald-600 text-white px-4 rounded-lg text-sm font-medium shrink-0"
+                >
+                  주소 검색
+                </button>
+              </div>
+            </div>
 
             <textarea
               value={description}
@@ -108,7 +136,7 @@ export default function ReportForm({ lat, lng, onClose }: Props) {
 
             <button
               onClick={handleSubmit}
-              disabled={submitting}
+              disabled={submitting || !address.trim()}
               className="w-full bg-emerald-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
             >
               {submitting ? '제보 중...' : '제보하기 (+10P)'}
