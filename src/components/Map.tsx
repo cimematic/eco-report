@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import { Report, FoodShare } from '@/lib/types'
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, useMap } from 'react-leaflet'
 import L from 'leaflet'
@@ -11,6 +11,7 @@ interface Props {
   foodShares: FoodShare[]
   onClick?: (lat: number, lng: number, address?: string) => void
   height?: string
+  flyToTarget?: { lat: number; lng: number } | null
 }
 
 function MapClickHandler({ onClick }: { onClick?: (lat: number, lng: number, address?: string) => void }) {
@@ -34,39 +35,17 @@ function MapClickHandler({ onClick }: { onClick?: (lat: number, lng: number, add
   return null
 }
 
-function LocateButton({ onGpsPosition }: { onGpsPosition: (pos: { lat: number; lng: number }) => void }) {
+function MapController({ flyToTarget }: { flyToTarget?: { lat: number; lng: number } | null }) {
   const map = useMap()
-  const [locating, setLocating] = useState(false)
-
-  const handleLocate = () => {
-    if (!navigator.geolocation) { alert('GPS를 지원하지 않는 브라우저입니다'); return }
-    setLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        const { latitude: lat, longitude: lng } = pos.coords
-        map.flyTo([lat, lng], 15, { duration: 1.5 })
-        onGpsPosition({ lat, lng })
-        setLocating(false)
-      },
-      () => { alert('위치를 가져올 수 없습니다'); setLocating(false) },
-      { enableHighAccuracy: false, timeout: 15000 }
-    )
-  }
-
-  return (
-    <div className="leaflet-top leaflet-right">
-      <div className="leaflet-control leaflet-bar">
-        <button
-          onClick={handleLocate}
-          disabled={locating}
-          className="w-9 h-9 bg-white flex items-center justify-center text-lg cursor-pointer hover:bg-gray-100 border-b"
-          title="내 위치"
-        >
-          {locating ? '⏳' : '📍'}
-        </button>
-      </div>
-    </div>
-  )
+  const prev = useRef<number>(0)
+  useEffect(() => {
+    if (!flyToTarget) return
+    const key = flyToTarget.lat + flyToTarget.lng
+    if (key === prev.current) return
+    prev.current = key
+    map.flyTo([flyToTarget.lat, flyToTarget.lng], 15, { duration: 1.5 })
+  }, [flyToTarget, map])
+  return null
 }
 
 function makeIcon(emoji: string) {
@@ -90,24 +69,7 @@ type PopupItem = {
   description: string; photoUrl?: string; nickname: string; meta?: string
 }
 
-export default function Map({ reports, foodShares, onClick, height = '100%' }: Props) {
-  const [gpsPos, setGpsPos] = useState<{ lat: number; lng: number } | null>(null)
-
-  useEffect(() => {
-    if (!gpsPos || !onClick) return
-    const { lat, lng } = gpsPos
-    ;(async () => {
-      try {
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ko`
-        )
-        const data = await res.json()
-        onClick(lat, lng, data.display_name || '')
-      } catch { onClick(lat, lng) }
-    })()
-    setGpsPos(null)
-  }, [gpsPos])
-
+export default function Map({ reports, foodShares, onClick, height = '100%', flyToTarget }: Props) {
   const items = useMemo(() => {
     const result: PopupItem[] = []
     for (const r of reports) {
@@ -141,7 +103,7 @@ export default function Map({ reports, foodShares, onClick, height = '100%' }: P
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         <MapClickHandler onClick={onClick} />
-        <LocateButton onGpsPosition={setGpsPos} />
+        <MapController flyToTarget={flyToTarget} />
         {items.map(item => (
           <Marker key={item.id} position={[item.lat, item.lng]} icon={item.icon}>
             <Popup>

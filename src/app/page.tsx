@@ -17,6 +17,7 @@ export default function Home() {
   const [showReportForm, setShowReportForm] = useState(false)
   const [showFoodForm, setShowFoodForm] = useState(false)
   const [clickPos, setClickPos] = useState<{ lat: number; lng: number; address?: string } | null>(null)
+  const [flyToTarget, setFlyToTarget] = useState<{ lat: number; lng: number } | null>(null)
   const [tab, setTab] = useState<'map' | 'list'>('map')
 
   const recentItems = [
@@ -48,6 +49,28 @@ export default function Home() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold">에코리포트</h1>
         <div className="flex gap-2">
+          <button
+            onClick={() => {
+              if (!navigator.geolocation) { alert('GPS를 지원하지 않는 브라우저입니다'); return }
+              navigator.geolocation.getCurrentPosition(
+                (pos) => {
+                  const { latitude: lat, longitude: lng } = pos.coords
+                  setFlyToTarget({ lat, lng })
+                  setClickPos({ lat, lng, address: '' })
+                  setShowReportForm(true)
+                  fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ko`)
+                    .then(r => r.json())
+                    .then(d => setClickPos({ lat, lng, address: d.display_name || '' }))
+                    .catch(() => {})
+                },
+                () => alert('위치를 가져올 수 없습니다'),
+                { enableHighAccuracy: false, timeout: 15000 }
+              )
+            }}
+            className="bg-blue-500 text-white text-xs px-3 py-1.5 rounded-full"
+          >
+            📍 내 위치
+          </button>
           <button
             onClick={() => { setClickPos(null); setShowFoodForm(true) }}
             className="bg-orange-500 text-white text-xs px-3 py-1.5 rounded-full"
@@ -87,6 +110,7 @@ export default function Home() {
           <Map
             reports={reports}
             foodShares={foodShares}
+            flyToTarget={flyToTarget}
             onClick={(lat, lng, addr) => {
               setClickPos({ lat, lng, address: addr || '' })
               setShowReportForm(true)
