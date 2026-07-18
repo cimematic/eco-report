@@ -19,7 +19,7 @@ interface Props {
 }
 
 export default function ChatRoom({ food, onClose }: Props) {
-  const { user, sendMessage, chats } = useApp()
+  const { user, sendMessage, chats, markChatRead } = useApp()
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -41,6 +41,10 @@ export default function ChatRoom({ food, onClose }: Props) {
     })
     return () => unsub()
   }, [chatId])
+
+  useEffect(() => {
+    if (chatId) markChatRead(chatId)
+  }, [chatId, markChatRead])
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })

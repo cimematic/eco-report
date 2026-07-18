@@ -6,6 +6,7 @@ import { FoodShare } from '@/lib/types'
 interface Props {
   food: FoodShare
   onChat?: (food: FoodShare) => void
+  onBuy?: (food: FoodShare) => void
 }
 
 const brandColors: Record<string, string> = {
@@ -21,20 +22,11 @@ function isExpired(dateStr: string): boolean {
   return new Date(dateStr) < new Date(new Date().toDateString())
 }
 
-export default function FoodCard({ food, onChat }: Props) {
-  const { buyFood, user } = useApp()
+export default function FoodCard({ food, onChat, onBuy }: Props) {
+  const { user } = useApp()
   const expired = isExpired(food.expirationDate)
-
-  const canBuy = user && food.status === 'available' && food.userId !== user.id && user.points >= food.price && !expired
   const isMine = user?.id === food.userId
-
-  const handleBuy = async () => {
-    if (!canBuy) return
-    if (!confirm(`${food.price}P를 사용하여 "${food.productName}"을(를) 구매하시겠습니까?`)) return
-    if (await buyFood(food.id)) {
-      alert('구매 완료! 채팅으로 판매자에게 픽업 시간을 문의해주세요.')
-    }
-  }
+  const canAfford = user ? user.points >= food.price : false
 
   const dDays = (() => {
     if (!food.expirationDate) return null
@@ -91,21 +83,24 @@ export default function FoodCard({ food, onChat }: Props) {
                 <span className="text-xs text-gray-400">만료</span>
               ) : food.status === 'available' ? (
                 <div className="flex gap-1.5">
-                  {!isMine && (
-                    <button
-                      onClick={() => onChat?.(food)}
-                      className="bg-blue-500 text-white text-xs px-2.5 py-1.5 rounded-lg hover:bg-blue-600"
-                    >
-                      채팅
-                    </button>
-                  )}
-                  {canBuy && (
-                    <button
-                      onClick={handleBuy}
-                      className="bg-emerald-600 text-white text-xs px-2.5 py-1.5 rounded-lg disabled:opacity-40"
-                    >
-                      구매
-                    </button>
+                  {!isMine ? (
+                    <>
+                      <button
+                        onClick={() => onChat?.(food)}
+                        className="bg-blue-500 text-white text-xs px-2.5 py-1.5 rounded-lg hover:bg-blue-600"
+                      >
+                        채팅
+                      </button>
+                      <button
+                        onClick={() => onBuy?.(food)}
+                        disabled={!canAfford}
+                        className="bg-emerald-600 text-white text-xs px-2.5 py-1.5 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        {canAfford ? '구매' : '포인트 부족'}
+                      </button>
+                    </>
+                  ) : (
+                    <span className="text-xs text-gray-400">내 상품</span>
                   )}
                 </div>
               ) : (

@@ -1,11 +1,12 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useApp } from '@/lib/store'
 import FoodCard from '@/components/FoodCard'
 import FoodForm from '@/components/FoodForm'
 import ChatRoom from '@/components/ChatRoom'
 import ChatList from '@/components/ChatList'
+import PurchaseModal from '@/components/PurchaseModal'
 import { FoodShare } from '@/lib/types'
 
 function isExpired(dateStr: string): boolean {
@@ -13,11 +14,18 @@ function isExpired(dateStr: string): boolean {
   return new Date(dateStr) < new Date(new Date().toDateString())
 }
 
+function isUnread(chat: { lastMessageAt?: number; lastReadBySeller?: number; lastReadByBuyer?: number }, userId: string, sellerId: string): boolean {
+  if (!chat.lastMessageAt) return false
+  const lastRead = userId === sellerId ? chat.lastReadBySeller : chat.lastReadByBuyer
+  return !lastRead || chat.lastMessageAt > lastRead
+}
+
 export default function FoodPage() {
-  const { user, foodShares, chats, createChat } = useApp()
+  const { user, foodShares, chats, createChat, markChatRead } = useApp()
   const [showForm, setShowForm] = useState(false)
   const [chatTarget, setChatTarget] = useState<FoodShare | null>(null)
   const [showChatList, setShowChatList] = useState(false)
+  const [buyTarget, setBuyTarget] = useState<FoodShare | null>(null)
 
   if (!user) return null
 
@@ -28,12 +36,35 @@ export default function FoodPage() {
   const myActive = myFoods.filter(f => !isExpired(f.expirationDate))
 
   const myChats = chats.filter(c => c.participants.includes(user.id))
+  const unreadCount = useMemo(() =>
+    myChats.filter(c => isUnread(c, user.id, c.sellerId)).length,
+  [myChats, user.id])
 
   const handleChat = async (food: FoodShare) => {
     const chatId = await createChat(food.id, food.userId, food.nickname, food.productName)
     if (chatId) {
       setChatTarget(food)
     }
+  }
+
+  const handleBuyStart = (food: FoodShare) => {
+    setBuyTarget(food)
+  }
+
+  const handleBuyClose = () => {
+    setBuyTarget(null)
+  }
+
+  const handleChatStartAfterBuy = (food: FoodShare) => {
+    handleChat(food)
+    setBuyTarget(null)
+  }
+
+  const handleChatRoomClose = () => {
+    if (chatTarget) {
+      markChatRead(chats.find(c => c.foodId === chatTarget.id && c.participants.includes(user.id))?.id || '')
+    }
+    setChatTarget(null)
   }
 
   return (
@@ -47,9 +78,9 @@ export default function FoodPage() {
               className="bg-blue-500 text-white text-sm px-3 py-2 rounded-full relative"
             >
               💬 채팅
-              {myChats.filter(c => !c.lastMessageAt).length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center">
-                  {myChats.filter(c => !c.lastMessageAt).length}
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[10px] min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 font-bold">
+                  {unreadCount}
                 </span>
               )}
             </button>
@@ -117,7 +148,7 @@ export default function FoodPage() {
 
       <div className="space-y-3">
         {available.map(food => (
-          <FoodCard key={food.id} food={food} onChat={handleChat} />
+          <FoodCard key={food.id} food={food} onChat={handleChat} onBuy={handleBuyStart} />
         ))}
       </div>
 
@@ -133,8 +164,9 @@ export default function FoodPage() {
       )}
 
       {showForm && <FoodForm lat={35.87} lng={128.6} onClose={() => setShowForm(false)} />}
-      {chatTarget && <ChatRoom food={chatTarget} onClose={() => setChatTarget(null)} />}
-      {showChatList && <ChatList onSelect={setChatTarget} onClose={() => setShowChatList(false)} />}
+      {buyTarget && <PurchaseModal food={buyTarget} onClose={handleBuyClose} onChatStart={handleChatStartAfterBuy} />}
+      {chatTarget && <ChatRoom food={chatTarget} onClose={handleChatRoomClose} />}
+      {showChatList && <ChatList onSelect={handleChat} onClose={() => setShowChatList(false)} />}
     </div>
   )
 }

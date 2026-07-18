@@ -42,6 +42,7 @@ interface AppContextType extends AppState {
   toggleReportStatus: (id: string) => Promise<void>
   createChat: (foodId: string, sellerId: string, sellerNickname: string, foodProductName: string) => Promise<string>
   sendMessage: (chatId: string, text: string) => Promise<void>
+  markChatRead: (chatId: string) => Promise<void>
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -361,11 +362,23 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const markChatRead = async (chatId: string) => {
+    if (!user || !db || !isFirebaseReady) return
+    const chat = chats.find(c => c.id === chatId)
+    if (!chat) return
+    const field = user.id === chat.sellerId ? 'lastReadBySeller' : 'lastReadByBuyer'
+    try {
+      await updateDoc(doc(db, 'chats', chatId), { [field]: Timestamp.now() })
+    } catch (e) {
+      console.error('Failed to mark chat read:', e)
+    }
+  }
+
   return (
     <AppContext.Provider value={{
       user, reports, foodShares, chats, isLoading, isFirebaseReady,
       login, logout, addReport, addFoodShare, buyFood, addPoints, deleteReport, deleteFoodShare,
-      toggleReportStatus, createChat, sendMessage,
+      toggleReportStatus, createChat, sendMessage, markChatRead,
     }}>
       {children}
     </AppContext.Provider>

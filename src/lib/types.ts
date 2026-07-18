@@ -51,6 +51,8 @@ export interface Chat {
   participants: string[]
   lastMessage?: string
   lastMessageAt?: number
+  lastReadBySeller?: number
+  lastReadByBuyer?: number
   createdAt: number
 }
 

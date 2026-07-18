@@ -81,25 +81,43 @@ function UserLocationMarker({ location }: { location: { lat: number; lng: number
   return null
 }
 
-function makeIcon(emoji: string) {
+function makeIcon(bgColor: string, label: string) {
   return L.divIcon({
-    html: `<span style="font-size:1.5rem;line-height:1">${emoji}</span>`,
+    html: `<div style="background:${bgColor};color:#fff;width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;box-shadow:0 1px 4px rgba(0,0,0,.3);border:2px solid #fff">${label}</div>`,
     className: 'bg-transparent border-none',
     iconSize: [30, 30],
     iconAnchor: [15, 30],
   })
 }
 
+const BRAND_ICONS: Record<string, L.DivIcon> = {
+  GS25: makeIcon('#2563eb', 'GS'),
+  CU: makeIcon('#7c3aed', 'CU'),
+  '7-Eleven': makeIcon('#16a34a', '7E'),
+  Emart24: makeIcon('#ea580c', 'E24'),
+  Ministop: makeIcon('#dc2626', 'MS'),
+}
+
+const DEFAULT_FOOD_ICON = makeIcon('#6b7280', '🏪')
+
 const ICONS = {
-  trash: makeIcon('🗑️'),
-  blindspot: makeIcon('⚠️'),
-  food: makeIcon('🍽️'),
+  trash: makeIcon('#6b7280', '🗑️'),
+  blindspot: makeIcon('#f59e0b', '⚠️'),
 }
 
 type PopupItem = {
   id: string; lat: number; lng: number; icon: L.DivIcon
   title: string; address: string
   description: string; photoUrl?: string; nickname: string; meta?: string
+  brand?: string; dDays?: string | null; originalPrice?: number; price?: number
+}
+
+function dDays(dateStr: string): string | null {
+  if (!dateStr) return null
+  const diff = Math.ceil((new Date(dateStr).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+  if (diff < 0) return '만료'
+  if (diff === 0) return 'D-Day'
+  return `D-${diff}`
 }
 
 export default function Map({ reports, foodShares, onClick, height = '100%', flyToTarget, userLocation }: Props) {
@@ -119,10 +137,17 @@ export default function Map({ reports, foodShares, onClick, height = '100%', fly
       if (f.status !== 'available') continue
       result.push({
         id: `f-${f.id}`, lat: f.lat, lng: f.lng,
-        icon: ICONS.food,
-        title: `🍽️ ${f.productName}`, address: f.address,
-        description: f.description || '', photoUrl: f.photoUrl,
-        nickname: f.nickname, meta: `${f.price}P`,
+        icon: BRAND_ICONS[f.storeBrand || ''] || DEFAULT_FOOD_ICON,
+        title: f.productName,
+        address: f.address,
+        description: f.description || '',
+        photoUrl: f.photoUrl,
+        nickname: f.nickname,
+        meta: `${f.price}P`,
+        brand: f.storeBrand,
+        dDays: dDays(f.expirationDate),
+        originalPrice: f.originalPrice,
+        price: f.price,
       })
     }
     return result
@@ -142,19 +167,37 @@ export default function Map({ reports, foodShares, onClick, height = '100%', fly
           <Marker key={item.id} position={[item.lat, item.lng]} icon={item.icon}>
             <Popup>
               <div style={{ minWidth: 200, maxWidth: 260 }}>
+                {item.brand && (
+                  <div style={{ fontSize: 11, color: '#666', marginBottom: 4 }}>
+                    🏪 {item.brand}
+                  </div>
+                )}
                 <div style={{ fontWeight: 600, fontSize: 14, marginBottom: 4 }}>{item.title}</div>
                 {item.address && (
-                  <div style={{ fontSize: 12, color: '#666', marginBottom: 6 }}>📍 {item.address}</div>
+                  <div style={{ fontSize: 12, color: '#666', marginBottom: 4 }}>📍 {item.address}</div>
+                )}
+                {item.dDays && (
+                  <div style={{
+                    fontSize: 11, fontWeight: 600, marginBottom: 4,
+                    color: item.dDays === '만료' ? '#dc2626' : '#059669',
+                  }}>
+                    {item.dDays === '만료' ? '❌ 유통기한 만료' : `⏰ ${item.dDays}`}
+                  </div>
+                )}
+                {item.originalPrice && item.originalPrice > 0 && (
+                  <div style={{ fontSize: 12, color: '#999', marginBottom: 2, textDecoration: 'line-through' }}>
+                    정가 {item.originalPrice.toLocaleString()}원
+                  </div>
                 )}
                 {item.photoUrl && (
                   <img
                     src={item.photoUrl}
                     alt=""
-                    style={{ width: '100%', height: 120, objectFit: 'cover', borderRadius: 8, marginBottom: 6 }}
+                    style={{ width: '100%', height: 100, objectFit: 'cover', borderRadius: 8, marginBottom: 4 }}
                   />
                 )}
                 {item.description && (
-                  <div style={{ fontSize: 13, color: '#333', lineHeight: 1.4, marginBottom: 6 }}>
+                  <div style={{ fontSize: 13, color: '#333', lineHeight: 1.4, marginBottom: 4 }}>
                     {item.description}
                   </div>
                 )}
