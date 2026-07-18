@@ -10,7 +10,7 @@ import ReportCard from '@/components/ReportCard'
 import FoodCard from '@/components/FoodCard'
 import DistrictCards from '@/components/DistrictCard'
 
-const KakaoMap = dynamic(() => import('@/components/KakaoMap'), { ssr: false })
+const Map = dynamic(() => import('@/components/Map'), { ssr: false })
 
 export default function Home() {
   const { user, reports, foodShares } = useApp()
@@ -84,7 +84,7 @@ export default function Home() {
 
       {tab === 'map' ? (
         <div className="h-[400px] rounded-xl overflow-hidden shadow-md">
-          <KakaoMap
+          <Map
             reports={reports}
             foodShares={foodShares}
             onClick={(lat, lng) => {
