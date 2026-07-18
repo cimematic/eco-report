@@ -8,6 +8,7 @@ export async function POST(req: Request) {
     const body = await req.json()
     reports = body.reports || []
     foodShares = body.foodShares || []
+    const question = body.question?.trim() || ''
 
     const trashCount = reports.filter((r: any) => r.type === 'trash' && r.status === 'open').length
     const blindspotCount = reports.filter((r: any) => r.type === 'blindspot' && r.status === 'open').length
@@ -18,33 +19,40 @@ export async function POST(req: Request) {
 
     if (!hasApiKey) {
       return NextResponse.json({
-        summary: `오늘의 리포트입니다. 쓰레기 제보 ${trashCount}건, 사각지대 ${blindspotCount}건, 음식 나눔 ${foodCount}건이 등록되었습니다.`,
+        summary: question
+          ? `죄송합니다. AI 키가 설정되지 않아 질문에 답변할 수 없습니다.`
+          : `오늘의 리포트입니다. 쓰레기 제보 ${trashCount}건, 사각지대 ${blindspotCount}건, 음식 나눔 ${foodCount}건이 등록되었습니다.`,
         trashCount,
         blindspotCount,
         foodCount,
-        topReporter: 'API 키 미설정',
-        hotDistrict: '분석 불가',
-        tips: 'OPENROUTER_API_KEY를 .env.local에 설정해주세요',
+        topReporter: null,
+        hotDistrict: null,
+        tips: null,
       })
     }
 
     const today = new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })
 
-    const prompt = `오늘은 ${today}입니다. 다음은 오늘의 제보 및 나눔 데이터입니다:
+    const dataSection = `오늘은 ${today}입니다. 현재까지의 데이터입니다:
+- 제보 목록: ${JSON.stringify(reports.slice(0, 30))}
+- 음식 나눔 목록: ${JSON.stringify(foodShares.slice(0, 15))}`
 
-- 쓰레기 무단투기 제보: ${trashCount}건
-- 사각지대 제보: ${blindspotCount}건
-- 음식 나눔: ${foodCount}건
+    const prompt = question
+      ? `${dataSection}
 
-제보 목록:
-${JSON.stringify(reports.slice(0, 20))}
+사용자의 질문: "${question}"
 
-음식 나눔 목록:
-${JSON.stringify(foodShares.slice(0, 10))}
+위 데이터를 바탕으로 사용자의 질문에 답변해주세요.
+답변은 데이터에 근거해야 하며, 질문과 관련 없는 내용은 말하지 마세요.
+JSON 형식으로만 응답해주세요:
+{
+  "summary": "질문에 대한 2~3문장 답변"
+}`
+      : `${dataSection}
 
 위 데이터를 바탕으로 아래 JSON 형식으로만 응답해주세요 (다른 말 없이 JSON만):
 {
-  "summary": "데이터를 요약한 2~3문장, 친근한 말투로",
+  "summary": "오늘의 제보를 요약한 2~3문장, 친근한 말투로",
   "topReporter": "가장 많이 제보한 사람의 닉네임 (없으면 null)",
   "hotDistrict": "가장 이슈가 된 동네 (없으면 null)",
   "tips": "환경 관련 실천 팁 한 문장"

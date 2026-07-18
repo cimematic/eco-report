@@ -116,30 +116,20 @@ export default function BriefingPage() {
       </div>
 
       <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={() => setQuestion('가장 제보가 많은 동네는?')}
-          className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-600 text-left"
-        >
-          🏘️ 가장 제보가 많은 동네는?
-        </button>
-        <button
-          onClick={() => setQuestion('오늘 환경을 위해 실천할 수 있는 일은?')}
-          className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-600 text-left"
-        >
-          🌱 오늘 실천할 수 있는 일은?
-        </button>
-        <button
-          onClick={() => setQuestion('쓰레기 문제가 가장 심각한 곳은?')}
-          className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-600 text-left"
-        >
-          🗑️ 쓰레기 문제가 가장 심각한 곳은?
-        </button>
-        <button
-          onClick={() => setQuestion('이번 주 제보 추세를 분석해줘')}
-          className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-600 text-left"
-        >
-          📈 이번 주 제보 추세 분석
-        </button>
+        {[
+          { q: '가장 제보가 많은 동네는?', icon: '🏘️', label: '가장 제보가 많은 동네는?' },
+          { q: '오늘 환경을 위해 실천할 수 있는 일은?', icon: '🌱', label: '오늘 실천할 수 있는 일은?' },
+          { q: '쓰레기 문제가 가장 심각한 곳은?', icon: '🗑️', label: '쓰레기 문제가 가장 심각한 곳은?' },
+          { q: '이번 주 제보 추세를 분석해줘', icon: '📈', label: '이번 주 제보 추세 분석' },
+        ].map((item) => (
+          <button
+            key={item.q}
+            onClick={() => { setQuestion(item.q); setTimeout(() => handleAsk(), 100) }}
+            className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-600 text-left hover:bg-emerald-50 hover:border-emerald-200 transition"
+          >
+            {item.icon} {item.label}
+          </button>
+        ))}
       </div>
     </div>
   )
