@@ -1,6 +1,7 @@
 import { initializeApp, getApps, FirebaseApp } from 'firebase/app'
 import { getFirestore, Firestore } from 'firebase/firestore'
 import { getStorage, FirebaseStorage } from 'firebase/storage'
+import { getAuth, signInAnonymously, Auth } from 'firebase/auth'
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || '',
@@ -14,6 +15,7 @@ const firebaseConfig = {
 let app: FirebaseApp | undefined
 let db: Firestore | undefined
 let storage: FirebaseStorage | undefined
+let auth: Auth | undefined
 
 const hasFirebaseKeys = firebaseConfig.apiKey && firebaseConfig.projectId
 
@@ -26,8 +28,14 @@ if (typeof window !== 'undefined' && !getApps().length && hasFirebaseKeys) {
   } catch (e) {
     console.error('Firebase init failed:', e)
   }
+  try {
+    auth = getAuth(app!)
+    signInAnonymously(auth)
+  } catch (e) {
+    console.log('Anonymous auth not available (expected if not enabled in Firebase Console)')
+  }
 } else if (typeof window !== 'undefined' && !hasFirebaseKeys) {
   console.warn('Firebase keys not configured. Set NEXT_PUBLIC_FIREBASE_* env vars.')
 }
 
-export { app, db, storage }
+export { app, db, storage, auth }
