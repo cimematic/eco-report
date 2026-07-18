@@ -46,11 +46,14 @@ function LocateButton() {
         map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1.5 })
         setLocating(false)
       },
-      () => {
-        alert('위치를 가져올 수 없습니다. 위치 권한을 확인해주세요.')
+      (err) => {
+        const msg = err.code === 1 ? '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.'
+          : err.code === 2 ? '위치 정보를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.'
+          : '위치를 가져오지 못했습니다. (timeout)'
+        alert(msg)
         setLocating(false)
       },
-      { enableHighAccuracy: true, timeout: 10000 }
+      { enableHighAccuracy: false, timeout: 15000 }
     )
   }
 
