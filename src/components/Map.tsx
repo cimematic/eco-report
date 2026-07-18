@@ -39,21 +39,33 @@ function LocateButton() {
   const [locating, setLocating] = useState(false)
 
   const handleLocate = () => {
-    if (!navigator.geolocation) return alert('GPS를 지원하지 않는 브라우저입니다')
     setLocating(true)
+
+    const fly = (lat: number, lng: number) => {
+      map.flyTo([lat, lng], 15, { duration: 1.5 })
+      setLocating(false)
+    }
+
+    const ipFallback = () => {
+      fetch('https://ip-api.com/json/?fields=lat,lon')
+        .then(r => r.json())
+        .then(d => { if (d.lat && d.lon) fly(d.lat, d.lon) })
+        .catch(() => { alert('위치를 찾을 수 없습니다'); setLocating(false) })
+    }
+
+    if (!navigator.geolocation) { ipFallback(); return }
+
     navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        map.flyTo([pos.coords.latitude, pos.coords.longitude], 15, { duration: 1.5 })
-        setLocating(false)
-      },
+      (pos) => fly(pos.coords.latitude, pos.coords.longitude),
       (err) => {
-        const msg = err.code === 1 ? '위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.'
-          : err.code === 2 ? '위치 정보를 사용할 수 없습니다. 잠시 후 다시 시도해주세요.'
-          : '위치를 가져오지 못했습니다. (timeout)'
-        alert(msg)
-        setLocating(false)
+        if (err.code === 1) {
+          alert('위치 권한이 거부되었습니다. 브라우저 설정에서 위치 권한을 허용해주세요.')
+          setLocating(false)
+        } else {
+          ipFallback()
+        }
       },
-      { enableHighAccuracy: false, timeout: 15000 }
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
     )
   }
 
