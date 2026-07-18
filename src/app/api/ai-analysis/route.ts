@@ -36,7 +36,7 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
+        model: 'nvidia/nemotron-3-embed-1b:free',
         messages: [{
           role: 'user',
           content: [

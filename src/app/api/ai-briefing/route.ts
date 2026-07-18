@@ -65,7 +65,7 @@ JSON 형식으로만 응답해주세요:
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'openai/gpt-4o-mini',
+        model: 'nvidia/nemotron-3-embed-1b:free',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
         response_format: { type: 'json_object' },
