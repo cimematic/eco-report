@@ -15,10 +15,19 @@ let app: FirebaseApp | undefined
 let db: Firestore | undefined
 let storage: FirebaseStorage | undefined
 
-if (typeof window !== 'undefined' && !getApps().length) {
-  app = initializeApp(firebaseConfig)
-  db = getFirestore(app)
-  storage = getStorage(app)
+const hasFirebaseKeys = firebaseConfig.apiKey && firebaseConfig.projectId
+
+if (typeof window !== 'undefined' && !getApps().length && hasFirebaseKeys) {
+  try {
+    app = initializeApp(firebaseConfig)
+    db = getFirestore(app)
+    storage = getStorage(app)
+    console.log('Firebase initialized successfully')
+  } catch (e) {
+    console.error('Firebase init failed:', e)
+  }
+} else if (typeof window !== 'undefined' && !hasFirebaseKeys) {
+  console.warn('Firebase keys not configured. Set NEXT_PUBLIC_FIREBASE_* env vars.')
 }
 
 export { app, db, storage }

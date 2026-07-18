@@ -149,12 +149,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
         await addDoc(collection(db, 'reports'), data)
         setUser(prev => prev ? { ...prev, points: prev.points + 10 } : prev)
         toast('제보 완료! +10P', '📸')
-      } catch (e) {
+      } catch (e: any) {
         console.error('Failed to add report:', e)
-        toast('제보 실패. 다시 시도해주세요.', '❌')
+        toast(`제보 실패: ${e?.message || '알 수 없는 오류'}`, '❌')
       }
     } else {
-      toast('Firebase가 연결되지 않았습니다.', '⚠️')
+      toast('Firebase가 연결되지 않았습니다. 환경 변수를 확인해주세요.', '⚠️')
     }
   }
 
