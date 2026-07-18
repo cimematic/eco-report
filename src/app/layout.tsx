@@ -45,6 +45,7 @@ export default function RootLayout({
             <LoginModal />
             <UserBadge />
             <main className="max-w-lg mx-auto pb-20 min-h-screen">
+              <UserBadge />
               {children}
             </main>
             <Navigation />
