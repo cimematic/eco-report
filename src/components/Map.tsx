@@ -67,6 +67,7 @@ function LocateButton({ onClick }: { onClick?: (lat: number, lng: number, addres
       <div className="leaflet-control leaflet-bar">
         <button
           onClick={handleLocate}
+          onPointerDown={e => e.stopPropagation()}
           disabled={locating}
           className="w-9 h-9 bg-white flex items-center justify-center text-lg cursor-pointer hover:bg-gray-100 border-b"
           title="내 위치"
