@@ -68,7 +68,6 @@ JSON 형식으로만 응답해주세요:
         model: 'tencent/hy3:free',
         messages: [{ role: 'user', content: prompt }],
         temperature: 0.7,
-        response_format: { type: 'json_object' },
       }),
     })
 
