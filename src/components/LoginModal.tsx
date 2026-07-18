@@ -1,7 +1,9 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useApp } from '@/lib/store'
+
+const LAST_NICK_KEY = 'eco-report-last-nick'
 
 function findAuthUser(nickname: string): boolean {
   if (typeof window === 'undefined') return false
@@ -22,10 +24,21 @@ export default function LoginModal() {
   const isExisting = nickname.trim() ? findAuthUser(nickname.trim()) : false
   const canSubmit = nickname.trim() && pin.length === 4 && (isExisting || pin === pinConfirm)
 
+  useEffect(() => {
+    if (!show) return
+    const saved = localStorage.getItem(LAST_NICK_KEY)
+    if (saved) setNickname(saved)
+  }, [show])
+
+  const saveLastNick = (nick: string) => {
+    try { localStorage.setItem(LAST_NICK_KEY, nick) } catch {}
+  }
+
   const handleSubmit = useCallback(() => {
     if (!canSubmit) return
     try {
       login(nickname.trim(), pin)
+      saveLastNick(nickname.trim())
     } catch (e: any) {
       setError(e.message || '로그인에 실패했습니다')
     }
