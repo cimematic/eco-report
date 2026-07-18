@@ -36,7 +36,7 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'nvidia/nemotron-3-embed-1b:free',
+        model: 'tencent/hy3:free',
         messages: [{
           role: 'user',
           content: [
