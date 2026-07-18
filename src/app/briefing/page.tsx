@@ -46,19 +46,15 @@ export default function BriefingPage() {
     if (reports.length > 0 || foodShares.length > 0) generateBriefing()
   }, [])
 
-  const handleAsk = async () => {
-    if (!question.trim()) return
+  const askQuestion = async (q: string) => {
+    if (!q.trim()) return
     setAsking(true)
     setAnswer('')
     try {
       const res = await fetch('/api/ai-briefing', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          reports,
-          foodShares,
-          question: question.trim(),
-        }),
+        body: JSON.stringify({ reports, foodShares, question: q }),
       })
       const data = await res.json()
       setAnswer(data.summary || '질문에 답변할 수 없습니다.')
@@ -96,12 +92,12 @@ export default function BriefingPage() {
           <input
             value={question}
             onChange={e => setQuestion(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleAsk()}
+            onKeyDown={e => e.key === 'Enter' && askQuestion(question)}
             placeholder="예: 수성구에서 가장 많이 나온 문제는?"
             className="flex-1 border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
           />
           <button
-            onClick={handleAsk}
+            onClick={() => askQuestion(question)}
             disabled={asking || !question.trim()}
             className="bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm disabled:opacity-40"
           >
@@ -124,7 +120,7 @@ export default function BriefingPage() {
         ].map((item) => (
           <button
             key={item.q}
-            onClick={() => { setQuestion(item.q); setTimeout(() => handleAsk(), 100) }}
+            onClick={() => { setQuestion(item.q); askQuestion(item.q) }}
             className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-600 text-left hover:bg-emerald-50 hover:border-emerald-200 transition"
           >
             {item.icon} {item.label}
