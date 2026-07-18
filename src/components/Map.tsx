@@ -9,13 +9,27 @@ import 'leaflet/dist/leaflet.css'
 interface Props {
   reports: Report[]
   foodShares: FoodShare[]
-  onClick?: (lat: number, lng: number) => void
+  onClick?: (lat: number, lng: number, address?: string) => void
   height?: string
 }
 
-function MapClickHandler({ onClick }: { onClick?: (lat: number, lng: number) => void }) {
+function MapClickHandler({ onClick }: { onClick?: (lat: number, lng: number, address?: string) => void }) {
   useMapEvents({
-    click: (e) => onClick?.(e.latlng.lat, e.latlng.lng),
+    click: async (e) => {
+      const lat = e.latlng.lat
+      const lng = e.latlng.lng
+      if (onClick) {
+        try {
+          const res = await fetch(
+            `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=ko`
+          )
+          const data = await res.json()
+          onClick(lat, lng, data.display_name || '')
+        } catch {
+          onClick(lat, lng)
+        }
+      }
+    },
   })
   return null
 }

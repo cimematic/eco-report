@@ -16,7 +16,7 @@ export default function Home() {
   const { user, reports, foodShares } = useApp()
   const [showReportForm, setShowReportForm] = useState(false)
   const [showFoodForm, setShowFoodForm] = useState(false)
-  const [clickPos, setClickPos] = useState<{ lat: number; lng: number } | null>(null)
+  const [clickPos, setClickPos] = useState<{ lat: number; lng: number; address?: string } | null>(null)
   const [tab, setTab] = useState<'map' | 'list'>('map')
 
   const recentItems = [
@@ -87,8 +87,8 @@ export default function Home() {
           <Map
             reports={reports}
             foodShares={foodShares}
-            onClick={(lat, lng) => {
-              setClickPos({ lat, lng })
+            onClick={(lat, lng, addr) => {
+              setClickPos({ lat, lng, address: addr || '' })
               setShowReportForm(true)
             }}
           />
@@ -117,6 +117,7 @@ export default function Home() {
         <ReportForm
           lat={clickPos?.lat}
           lng={clickPos?.lng}
+          initialAddress={clickPos?.address || ''}
           onClose={() => { setShowReportForm(false); setClickPos(null) }}
         />
       )}
