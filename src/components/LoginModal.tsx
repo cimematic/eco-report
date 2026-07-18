@@ -20,7 +20,6 @@ export default function LoginModal() {
   const [show, setShow] = useState(false)
 
   const isExisting = nickname.trim() ? findAuthUser(nickname.trim()) : false
-
   const canSubmit = nickname.trim() && pin.length === 4 && (isExisting || pin === pinConfirm)
 
   const handleSubmit = useCallback(() => {
@@ -72,30 +71,31 @@ export default function LoginModal() {
             const v = e.target.value.replace(/\D/g, '').slice(0, 4)
             setPin(v)
             setError('')
-            if (v.length === 4 && isExisting) handleSubmit()
           }}
-          onKeyDown={e => e.key === 'Enter' && handleSubmit()}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && pin.length === 4) handleSubmit()
+          }}
           placeholder="PIN 4자리 숫자"
           maxLength={4}
           className="w-full border rounded-lg px-4 py-3 mb-3 text-base outline-none focus:ring-2 focus:ring-emerald-400"
         />
 
-        {!isExisting && (
-          <input
-            type="password"
-            inputMode="numeric"
-            value={pinConfirm}
-            onChange={e => {
-              const v = e.target.value.replace(/\D/g, '').slice(0, 4)
-              setPinConfirm(v)
-              setError('')
-            }}
-            onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-            placeholder="PIN 한 번 더 입력"
-            maxLength={4}
-            className="w-full border rounded-lg px-4 py-3 mb-3 text-base outline-none focus:ring-2 focus:ring-emerald-400"
-          />
-        )}
+        <input
+          type="password"
+          inputMode="numeric"
+          value={pinConfirm}
+          onChange={e => {
+            const v = e.target.value.replace(/\D/g, '').slice(0, 4)
+            setPinConfirm(v)
+            setError('')
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter' && pin.length === 4 && pinConfirm.length === 4) handleSubmit()
+          }}
+          placeholder={isExisting ? 'PIN 한 번 더 입력 (확인)' : 'PIN 한 번 더 입력'}
+          maxLength={4}
+          className="w-full border rounded-lg px-4 py-3 mb-3 text-base outline-none focus:ring-2 focus:ring-emerald-400"
+        />
 
         {error && (
           <p className="text-red-500 text-sm mb-3 text-center">{error}</p>
