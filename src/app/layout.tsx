@@ -43,7 +43,6 @@ export default function RootLayout({
           <AppProvider>
             <Onboarding />
             <LoginModal />
-            <UserBadge />
             <main className="max-w-lg mx-auto pb-20 min-h-screen">
               <UserBadge />
               {children}
