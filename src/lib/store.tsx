@@ -53,6 +53,16 @@ function saveUser(user: User | null) {
   else localStorage.removeItem(SESSION_KEY)
 }
 
+function cleanData(obj: Record<string, any>): Record<string, any> {
+  const result: Record<string, any> = {}
+  for (const [key, value] of Object.entries(obj)) {
+    if (value !== undefined && value !== null) {
+      result[key] = value
+    }
+  }
+  return result
+}
+
 function toDate(ts: any): number {
   if (ts?.toMillis) return ts.toMillis()
   if (typeof ts === 'number') return ts
@@ -138,12 +148,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addReport = async (input: Omit<Report, 'id' | 'userId' | 'nickname' | 'createdAt'>) => {
     if (!user) return
-    const data = {
+    const raw = {
       ...input,
       userId: user.id,
       nickname: user.nickname,
       createdAt: Timestamp.now(),
     }
+    const data = cleanData(raw)
     if (db && isFirebaseReady) {
       try {
         await addDoc(collection(db, 'reports'), data)
@@ -160,13 +171,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const addFoodShare = async (input: Omit<FoodShare, 'id' | 'userId' | 'nickname' | 'createdAt' | 'status'>) => {
     if (!user) return
-    const data = {
+    const raw = {
       ...input,
       userId: user.id,
       nickname: user.nickname,
       status: 'available',
       createdAt: Timestamp.now(),
     }
+    const data = cleanData(raw)
     if (db && isFirebaseReady) {
       try {
         await addDoc(collection(db, 'foodShares'), data)
