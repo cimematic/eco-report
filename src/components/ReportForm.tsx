@@ -25,12 +25,14 @@ export default function ReportForm({ lat, lng, onClose }: Props) {
   const [step, setStep] = useState<'location' | 'form'>(
     lat && lng ? 'form' : 'location'
   )
+  const [submitting, setSubmitting] = useState(false)
 
   if (!user) return null
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!lat || !lng) return
-    addReport({
+    setSubmitting(true)
+    await addReport({
       type,
       lat,
       lng,
@@ -39,6 +41,7 @@ export default function ReportForm({ lat, lng, onClose }: Props) {
       description: description || undefined,
       status: 'open',
     })
+    setSubmitting(false)
     onClose()
   }
 
@@ -105,9 +108,10 @@ export default function ReportForm({ lat, lng, onClose }: Props) {
 
             <button
               onClick={handleSubmit}
-              className="w-full bg-emerald-600 text-white rounded-lg py-3 font-medium"
+              disabled={submitting}
+              className="w-full bg-emerald-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
             >
-              제보하기 (+10P)
+              {submitting ? '제보 중...' : '제보하기 (+10P)'}
             </button>
           </>
         )}

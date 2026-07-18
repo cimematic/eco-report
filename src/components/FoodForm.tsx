@@ -16,12 +16,14 @@ export default function FoodForm({ lat, lng, onClose }: Props) {
   const [description, setDescription] = useState('')
   const [price, setPrice] = useState(10)
   const [photoUrl, setPhotoUrl] = useState('')
+  const [submitting, setSubmitting] = useState(false)
 
   if (!user) return null
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!title.trim() || !lat || !lng) return
-    addFoodShare({
+    setSubmitting(true)
+    await addFoodShare({
       title: title.trim(),
       description: description || undefined,
       price,
@@ -30,6 +32,7 @@ export default function FoodForm({ lat, lng, onClose }: Props) {
       lng,
       address: '',
     } as any)
+    setSubmitting(false)
     onClose()
   }
 
@@ -73,11 +76,11 @@ export default function FoodForm({ lat, lng, onClose }: Props) {
         </div>
 
         <button
-          disabled={!title.trim()}
+          disabled={!title.trim() || submitting}
           onClick={handleSubmit}
           className="w-full bg-emerald-600 text-white rounded-lg py-3 font-medium disabled:opacity-40"
         >
-          등록하기
+          {submitting ? '등록 중...' : '등록하기'}
         </button>
       </div>
     </div>

@@ -3,43 +3,60 @@
 import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react'
 import { v4 as uuidv4 } from 'uuid'
 import { User, Report, FoodShare } from './types'
-import { generateSeedData } from './seed'
 import { useToast } from '@/components/Toast'
+import { db } from './firebase'
+import {
+  collection,
+  query,
+  orderBy,
+  onSnapshot,
+  addDoc,
+  doc,
+  updateDoc,
+  Timestamp,
+  limit,
+} from 'firebase/firestore'
+import { generateSeedData } from './seed'
 
 interface AppState {
   user: User | null
   reports: Report[]
   foodShares: FoodShare[]
   isLoading: boolean
+  isFirebaseReady: boolean
 }
 
 interface AppContextType extends AppState {
   login: (nickname: string) => void
   logout: () => void
-  addReport: (report: Omit<Report, 'id' | 'userId' | 'nickname' | 'createdAt'>) => void
-  addFoodShare: (food: Omit<FoodShare, 'id' | 'userId' | 'nickname' | 'createdAt' | 'status'>) => void
-  buyFood: (foodId: string) => boolean
+  addReport: (report: Omit<Report, 'id' | 'userId' | 'nickname' | 'createdAt'>) => Promise<void>
+  addFoodShare: (food: Omit<FoodShare, 'id' | 'userId' | 'nickname' | 'createdAt' | 'status'>) => Promise<void>
+  buyFood: (foodId: string) => Promise<boolean>
   addPoints: (amount: number) => void
 }
 
 const AppContext = createContext<AppContextType | null>(null)
+const SESSION_KEY = 'eco-report-user'
 
-const STORAGE_KEY = 'eco-report-state'
-
-function loadState(): Partial<AppState> {
-  if (typeof window === 'undefined') return {}
+function loadUser(): User | null {
+  if (typeof window === 'undefined') return null
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const raw = localStorage.getItem(SESSION_KEY)
     if (raw) return JSON.parse(raw)
   } catch { }
-  return {}
+  return null
 }
 
-function saveState(state: Partial<AppState>) {
+function saveUser(user: User | null) {
   if (typeof window === 'undefined') return
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-  } catch { }
+  if (user) localStorage.setItem(SESSION_KEY, JSON.stringify(user))
+  else localStorage.removeItem(SESSION_KEY)
+}
+
+function toDate(ts: any): number {
+  if (ts?.toMillis) return ts.toMillis()
+  if (typeof ts === 'number') return ts
+  return Date.now()
 }
 
 export function AppProvider({ children }: { children: ReactNode }) {
@@ -48,29 +65,62 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [reports, setReports] = useState<Report[]>([])
   const [foodShares, setFoodShares] = useState<FoodShare[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [isFirebaseReady, setIsFirebaseReady] = useState(false)
 
   useEffect(() => {
-    const saved = loadState()
-    const hasSeed = localStorage.getItem('eco-report-seeded')
-
-    if (!hasSeed) {
-      const seed = generateSeedData()
-      saved.reports = seed.reports
-      saved.foodShares = seed.foodShares
-      localStorage.setItem('eco-report-seeded', 'true')
-    }
-
-    if (saved.user) setUser(saved.user)
-    if (saved.reports) setReports(saved.reports)
-    if (saved.foodShares) setFoodShares(saved.foodShares)
+    const saved = loadUser()
+    if (saved) setUser(saved)
     setIsLoading(false)
   }, [])
 
   useEffect(() => {
-    if (!isLoading) {
-      saveState({ user, reports, foodShares })
+    saveUser(user)
+  }, [user])
+
+  useEffect(() => {
+    if (!db) {
+      setIsFirebaseReady(false)
+      return
     }
-  }, [user, reports, foodShares, isLoading])
+    setIsFirebaseReady(true)
+
+    let seeded = false
+
+    const reportsQuery = query(collection(db, 'reports'), orderBy('createdAt', 'desc'), limit(200))
+    const unsubReports = onSnapshot(reportsQuery, (snapshot) => {
+      const list: Report[] = snapshot.docs.map(d => {
+        const d2 = d.data() as any
+        return { ...d2, id: d.id, createdAt: toDate(d2.createdAt) } as Report
+      })
+      setReports(list)
+
+      if (!seeded && list.length === 0) {
+        seeded = true
+        const seed = generateSeedData()
+        seed.reports.forEach(r => {
+          addDoc(collection(db!, 'reports'), { ...r, createdAt: Timestamp.now() })
+        })
+        seed.foodShares.forEach(f => {
+          addDoc(collection(db!, 'foodShares'), { ...f, createdAt: Timestamp.now() })
+        })
+      }
+    }, (err) => {
+      console.error('Firestore reports error:', err)
+    })
+
+    const foodQuery = query(collection(db, 'foodShares'), orderBy('createdAt', 'desc'), limit(100))
+    const unsubFood = onSnapshot(foodQuery, (snapshot) => {
+      const list: FoodShare[] = snapshot.docs.map(d => {
+        const d2 = d.data() as any
+        return { ...d2, id: d.id, createdAt: toDate(d2.createdAt) } as FoodShare
+      })
+      setFoodShares(list)
+    }, (err) => {
+      console.error('Firestore foodShares error:', err)
+    })
+
+    return () => { unsubReports(); unsubFood() }
+  }, [])
 
   const login = (nickname: string) => {
     const newUser: User = {
@@ -86,46 +136,74 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setUser(null)
   }
 
-  const addReport = (input: Omit<Report, 'id' | 'userId' | 'nickname' | 'createdAt'>) => {
+  const addReport = async (input: Omit<Report, 'id' | 'userId' | 'nickname' | 'createdAt'>) => {
     if (!user) return
-    const report: Report = {
+    const data = {
       ...input,
-      id: uuidv4(),
       userId: user.id,
       nickname: user.nickname,
-      createdAt: Date.now(),
+      createdAt: Timestamp.now(),
     }
-    setReports(prev => [report, ...prev])
-    setUser(prev => prev ? { ...prev, points: prev.points + 10 } : prev)
-    toast('제보 완료! +10P', '📸')
+    if (db && isFirebaseReady) {
+      try {
+        await addDoc(collection(db, 'reports'), data)
+        setUser(prev => prev ? { ...prev, points: prev.points + 10 } : prev)
+        toast('제보 완료! +10P', '📸')
+      } catch (e) {
+        console.error('Failed to add report:', e)
+        toast('제보 실패. 다시 시도해주세요.', '❌')
+      }
+    } else {
+      toast('Firebase가 연결되지 않았습니다.', '⚠️')
+    }
   }
 
-  const addFoodShare = (input: Omit<FoodShare, 'id' | 'userId' | 'nickname' | 'createdAt' | 'status'>) => {
+  const addFoodShare = async (input: Omit<FoodShare, 'id' | 'userId' | 'nickname' | 'createdAt' | 'status'>) => {
     if (!user) return
-    const food: FoodShare = {
+    const data = {
       ...input,
-      id: uuidv4(),
       userId: user.id,
       nickname: user.nickname,
       status: 'available',
-      createdAt: Date.now(),
+      createdAt: Timestamp.now(),
     }
-    setFoodShares(prev => [food, ...prev])
-    toast('나눔 등록 완료!', '🍲')
+    if (db && isFirebaseReady) {
+      try {
+        await addDoc(collection(db, 'foodShares'), data)
+        toast('나눔 등록 완료!', '🍲')
+      } catch (e) {
+        console.error('Failed to add food share:', e)
+        toast('등록 실패. 다시 시도해주세요.', '❌')
+      }
+    } else {
+      toast('Firebase가 연결되지 않았습니다.', '⚠️')
+    }
   }
 
-  const buyFood = (foodId: string): boolean => {
+  const buyFood = async (foodId: string): Promise<boolean> => {
     if (!user) return false
     const food = foodShares.find(f => f.id === foodId)
     if (!food || food.status !== 'available') return false
     if (user.points < food.price) return false
 
-    setUser(prev => prev ? { ...prev, points: prev.points - food.price } : prev)
-    setFoodShares(prev => prev.map(f =>
-      f.id === foodId ? { ...f, status: 'sold' as const, buyerId: user.id } : f
-    ))
-    toast(`${food.title} 구매 완료!`, '🎉')
-    return true
+    if (db && isFirebaseReady) {
+      try {
+        await updateDoc(doc(db, 'foodShares', foodId), {
+          status: 'sold',
+          buyerId: user.id,
+        })
+        setUser(prev => prev ? { ...prev, points: prev.points - food.price } : prev)
+        toast(`${food.title} 구매 완료!`, '🎉')
+        return true
+      } catch (e) {
+        console.error('Failed to buy food:', e)
+        toast('구매 실패. 다시 시도해주세요.', '❌')
+        return false
+      }
+    } else {
+      toast('Firebase가 연결되지 않았습니다.', '⚠️')
+      return false
+    }
   }
 
   const addPoints = (amount: number) => {
@@ -134,7 +212,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   return (
     <AppContext.Provider value={{
-      user, reports, foodShares, isLoading,
+      user, reports, foodShares, isLoading, isFirebaseReady,
       login, logout, addReport, addFoodShare, buyFood, addPoints,
     }}>
       {children}

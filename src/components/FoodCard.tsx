@@ -12,10 +12,10 @@ export default function FoodCard({ food }: Props) {
 
   const canBuy = user && food.status === 'available' && food.userId !== user.id && user.points >= food.price
 
-  const handleBuy = () => {
+  const handleBuy = async () => {
     if (!canBuy) return
     if (!confirm(`${food.price}P를 사용하여 "${food.title}"을(를) 구매하시겠습니까?`)) return
-    if (buyFood(food.id)) {
+    if (await buyFood(food.id)) {
       alert('구매 완료! 판매자에게 연락해주세요.')
     }
   }
