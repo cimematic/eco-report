@@ -10,11 +10,19 @@ const nicknames = [
   '두산동책방', '파동산책러', '고모동사진사', '수성구민A',
 ]
 
-const addresses = [
-  '대구 수성구 범어동 176-1', '대구 수성구 지산동 1256', '대구 수성구 황금동 789',
-  '대구 수성구 중동 345', '대구 수성구 만촌동 567', '대구 수성구 수성동 234',
-  '대구 수성구 범물동 890', '대구 수성구 두산동 123', '대구 수성구 파동 456',
-  '대구 수성구 상동 678', '대구 수성구 시지동 901', '대구 수성구 노변동 234',
+const spots = [
+  { address: '대구 수성구 범어동 176-1', lat: 35.855, lng: 128.615 },
+  { address: '대구 수성구 지산동 1256', lat: 35.862, lng: 128.608 },
+  { address: '대구 수성구 황금동 789', lat: 35.848, lng: 128.622 },
+  { address: '대구 수성구 중동 345', lat: 35.870, lng: 128.605 },
+  { address: '대구 수성구 만촌동 567', lat: 35.858, lng: 128.598 },
+  { address: '대구 수성구 수성동 234', lat: 35.865, lng: 128.612 },
+  { address: '대구 수성구 범물동 890', lat: 35.875, lng: 128.620 },
+  { address: '대구 수성구 두산동 123', lat: 35.850, lng: 128.630 },
+  { address: '대구 수성구 파동 456', lat: 35.860, lng: 128.590 },
+  { address: '대구 수성구 상동 678', lat: 35.880, lng: 128.600 },
+  { address: '대구 수성구 시지동 901', lat: 35.845, lng: 128.625 },
+  { address: '대구 수성구 노변동 234', lat: 35.868, lng: 128.595 },
 ]
 
 const trashDescriptions = [
@@ -42,37 +50,24 @@ const foodTitles = [
   '콩나물 2봉', '두부 3모', '요거트 4개',
 ]
 
-const locations: { lat: number; lng: number }[] = [
-  { lat: 35.855, lng: 128.615 }, { lat: 35.862, lng: 128.608 }, { lat: 35.848, lng: 128.622 },
-  { lat: 35.870, lng: 128.605 }, { lat: 35.858, lng: 128.598 }, { lat: 35.865, lng: 128.612 },
-  { lat: 35.875, lng: 128.620 }, { lat: 35.850, lng: 128.630 }, { lat: 35.860, lng: 128.590 },
-  { lat: 35.880, lng: 128.600 }, { lat: 35.845, lng: 128.625 }, { lat: 35.868, lng: 128.595 },
-]
-
-function pick<T>(arr: T[]): T {
-  return arr[Math.floor(Math.random() * arr.length)]
-}
-
 export function generateSeedData(): { reports: Report[]; foodShares: FoodShare[] } {
   const reports: Report[] = []
   const foodShares: FoodShare[] = []
 
-  const seedNicknames = [...nicknames]
-
   for (let i = 0; i < 20; i++) {
     const isTrash = i < 12
     const daysAgo = Math.floor(Math.random() * 7)
-    const loc = locations[i % locations.length]
-    const nickname = seedNicknames[i % seedNicknames.length]
+    const s = spots[i % spots.length]
+    const nickname = nicknames[i % nicknames.length]
 
     reports.push({
       id: `seed-report-${i}`,
       userId: `seed-user-${i % 6}`,
       nickname,
       type: isTrash ? 'trash' : 'blindspot',
-      lat: loc.lat + (Math.random() - 0.5) * 0.008,
-      lng: loc.lng + (Math.random() - 0.5) * 0.008,
-      address: addresses[i % addresses.length],
+      lat: s.lat,
+      lng: s.lng,
+      address: s.address,
       photoUrl: '',
       description: isTrash
         ? trashDescriptions[i % trashDescriptions.length]
@@ -80,20 +75,21 @@ export function generateSeedData(): { reports: Report[]; foodShares: FoodShare[]
       status: i < 3 ? 'resolved' : 'open',
       severity: Math.floor(Math.random() * 3) + 1,
       createdAt: now - daysAgo * DAY - Math.floor(Math.random() * 3600000),
-    } as any)
+    })
 
     if (i < 8) {
+      const fs = spots[(i + 1) % spots.length]
       foodShares.push({
         id: `seed-food-${i}`,
         userId: `seed-user-${(i + 3) % 6}`,
-        nickname: seedNicknames[(i + 3) % seedNicknames.length],
+        nickname: nicknames[(i + 3) % nicknames.length],
         title: foodTitles[i % foodTitles.length],
         description: '냉장고 정리 중 나눔합니다. 직접 픽업 가능하신 분 연락주세요.',
         photoUrl: '',
         price: 10 + i * 5,
-        lat: locations[i % locations.length].lat + (Math.random() - 0.5) * 0.005,
-        lng: locations[i % locations.length].lng + (Math.random() - 0.5) * 0.005,
-        address: addresses[i % addresses.length],
+        lat: fs.lat,
+        lng: fs.lng,
+        address: fs.address,
         status: i < 2 ? 'sold' : 'available',
         buyerId: i < 2 ? `seed-buyer-${i}` : undefined,
         createdAt: now - daysAgo * DAY - Math.floor(Math.random() * 7200000),
