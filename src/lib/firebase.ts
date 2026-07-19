@@ -57,7 +57,7 @@ function parseFirestoreDoc(doc: any): Record<string, any> {
 export async function restGetDocs(collectionPath: string, opts?: { orderBy?: string; desc?: boolean; limit?: number }): Promise<Record<string, any>[]> {
   let url = `${BASE}/${collectionPath}?key=${API_KEY}`
   if (opts?.orderBy) {
-    const dir = opts.desc ? 'descending' : 'ascending'
+    const dir = opts.desc ? 'desc' : 'asc'
     url += `&orderBy=${opts.orderBy} ${dir}`
   }
   if (opts?.limit) url += `&pageSize=${opts.limit}`
