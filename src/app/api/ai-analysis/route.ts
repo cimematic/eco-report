@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 
 const OR_API = 'https://openrouter.ai/api/v1/chat/completions'
+const MODEL = 'tencent/hy3:free'
 
 export async function POST(req: Request) {
   try {
@@ -18,6 +19,7 @@ export async function POST(req: Request) {
         tags: ['API 키 미설정'],
         severity: 1,
         description: 'OPENROUTER_API_KEY를 .env.local에 설정해주세요',
+        model: null,
       })
     }
 
@@ -36,7 +38,7 @@ export async function POST(req: Request) {
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: 'tencent/hy3:free',
+        model: MODEL,
         messages: [{
           role: 'user',
           content: [
@@ -57,19 +59,22 @@ export async function POST(req: Request) {
         tags: ['분석 중 오류'],
         severity: 1,
         description: data.error.message || '일시적 오류',
+        model: MODEL,
       })
     }
 
     const text = data?.choices?.[0]?.message?.content || '{}'
-    const parsed = JSON.parse(text)
+    const cleaned = text.replace(/^```(?:json)?\s*/, '').replace(/\s*```$/, '')
+    const parsed = JSON.parse(cleaned)
 
     return NextResponse.json({
       tags: parsed.tags || [],
       severity: parsed.severity || 1,
       description: parsed.description || '',
+      model: MODEL,
     })
   } catch (err) {
     console.error('AI analysis error:', err)
-    return NextResponse.json({ tags: [], severity: 1, description: '분석 실패' })
+    return NextResponse.json({ tags: [], severity: 1, description: '분석 실패', model: null })
   }
 }

@@ -91,5 +91,6 @@ export interface Briefing {
   topReporter?: string
   hotDistrict?: string
   tips?: string
+  model?: string | null
   createdAt: number
 }

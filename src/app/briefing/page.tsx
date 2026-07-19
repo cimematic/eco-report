@@ -7,6 +7,19 @@ import type { Briefing } from '@/lib/types'
 
 const BriefingCard = dynamic(() => import('@/components/BriefingCard'), { ssr: false })
 
+const dataQuestions = [
+  { q: '가장 제보가 많은 동네는?', icon: '🏘️' },
+  { q: '오늘 환경을 위해 실천할 수 있는 일은?', icon: '🌱' },
+  { q: '쓰레기 문제가 가장 심각한 곳은?', icon: '🗑️' },
+  { q: '이번 주 제보 추세를 분석해줘', icon: '📈' },
+]
+
+const everydayQuestions = [
+  { q: '분리수거하는 방법을 알려줘', icon: '♻️' },
+  { q: '일회용품 줄이는 생활 팁', icon: '💡' },
+  { q: '환경 보호를 위해 할 수 있는 일', icon: '🌍' },
+]
+
 export default function BriefingPage() {
   const { user, reports, foodShares } = useApp()
   const [briefing, setBriefing] = useState<Briefing | null>(null)
@@ -14,6 +27,7 @@ export default function BriefingPage() {
   const [question, setQuestion] = useState('')
   const [answer, setAnswer] = useState('')
   const [asking, setAsking] = useState(false)
+  const [qTab, setQTab] = useState<'data' | 'everyday'>('data')
 
   const generateBriefing = async () => {
     setLoading(true)
@@ -33,6 +47,7 @@ export default function BriefingPage() {
         topReporter: data.topReporter || undefined,
         hotDistrict: data.hotDistrict || undefined,
         tips: data.tips || undefined,
+        model: data.model || undefined,
         createdAt: Date.now(),
       })
     } catch {
@@ -50,6 +65,7 @@ export default function BriefingPage() {
     if (!q.trim()) return
     setAsking(true)
     setAnswer('')
+    setQuestion(q)
     try {
       const res = await fetch('/api/ai-briefing', {
         method: 'POST',
@@ -68,7 +84,10 @@ export default function BriefingPage() {
   return (
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-bold">🤖 AI 브리핑</h1>
+        <div>
+          <h1 className="text-xl font-bold">🤖 AI 브리핑</h1>
+          <p className="text-xs text-gray-400 mt-0.5">⚡ tencent/hy3</p>
+        </div>
         <button
           onClick={generateBriefing}
           disabled={loading}
@@ -87,13 +106,13 @@ export default function BriefingPage() {
       )}
 
       <div className="bg-white rounded-xl p-4 border border-gray-100">
-        <h3 className="text-sm font-semibold mb-3">💬 궁금한 점을 물어보세요</h3>
-        <div className="flex gap-2">
+        <h3 className="text-sm font-semibold mb-3">💬 AI에게 물어보세요</h3>
+        <div className="flex gap-2 mb-3">
           <input
             value={question}
             onChange={e => setQuestion(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && askQuestion(question)}
-            placeholder="예: 수성구에서 가장 많이 나온 문제는?"
+            placeholder="궁금한 걸 물어보세요..."
             className="flex-1 border rounded-lg px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-emerald-400"
           />
           <button
@@ -104,28 +123,34 @@ export default function BriefingPage() {
             {asking ? '...' : '질문'}
           </button>
         </div>
-        {answer && (
-          <div className="mt-3 bg-emerald-50 rounded-lg p-3 text-sm">
-            {answer}
-          </div>
-        )}
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        {[
-          { q: '가장 제보가 많은 동네는?', icon: '🏘️', label: '가장 제보가 많은 동네는?' },
-          { q: '오늘 환경을 위해 실천할 수 있는 일은?', icon: '🌱', label: '오늘 실천할 수 있는 일은?' },
-          { q: '쓰레기 문제가 가장 심각한 곳은?', icon: '🗑️', label: '쓰레기 문제가 가장 심각한 곳은?' },
-          { q: '이번 주 제보 추세를 분석해줘', icon: '📈', label: '이번 주 제보 추세 분석' },
-        ].map((item) => (
+        <div className="flex gap-2 mb-3">
           <button
-            key={item.q}
-            onClick={() => { setQuestion(item.q); askQuestion(item.q) }}
-            className="bg-gray-50 border border-gray-200 rounded-xl p-3 text-xs text-gray-600 text-left hover:bg-emerald-50 hover:border-emerald-200 transition"
+            onClick={() => setQTab('data')}
+            className={`text-xs px-3 py-1 rounded-full ${qTab === 'data' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}
           >
-            {item.icon} {item.label}
+            📊 데이터 질문
           </button>
-        ))}
+          <button
+            onClick={() => setQTab('everyday')}
+            className={`text-xs px-3 py-1 rounded-full ${qTab === 'everyday' ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-500'}`}
+          >
+            🌱 일상 질문
+          </button>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {(qTab === 'data' ? dataQuestions : everydayQuestions).map((item) => (
+            <button
+              key={item.q}
+              onClick={() => askQuestion(item.q)}
+              className="bg-gray-50 border border-gray-200 rounded-xl p-2.5 text-xs text-gray-600 text-left hover:bg-emerald-50 hover:border-emerald-200 transition"
+            >
+              {item.icon} {item.q.length > 18 ? item.q.slice(0, 17) + '...' : item.q}
+            </button>
+          ))}
+        </div>
+        {answer && (
+          <div className="mt-3 bg-emerald-50 rounded-lg p-3 text-sm">{answer}</div>
+        )}
       </div>
     </div>
   )

@@ -8,15 +8,18 @@ interface Props {
 
 export default function BriefingCard({ briefing }: Props) {
   return (
-    <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl p-6 text-white shadow-lg">
-      <div className="flex items-center justify-between mb-4">
+    <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 rounded-2xl p-6 text-white shadow-lg relative overflow-hidden">
+      <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/2" />
+      <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/5 rounded-full translate-y-1/2 -translate-x-1/2" />
+
+      <div className="flex items-center justify-between mb-3 relative">
         <h2 className="text-lg font-bold">오늘의 브리핑</h2>
         <span className="text-emerald-200 text-sm">{briefing.date}</span>
       </div>
 
-      <p className="text-sm leading-relaxed mb-4 opacity-90">{briefing.summary}</p>
+      <p className="text-sm leading-relaxed mb-4 opacity-90 relative">{briefing.summary}</p>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-3 gap-3 relative">
         <div className="bg-white/15 rounded-xl p-3 text-center">
           <div className="text-2xl mb-1">🗑️</div>
           <div className="text-lg font-bold">{briefing.trashCount}</div>
@@ -35,20 +38,26 @@ export default function BriefingCard({ briefing }: Props) {
       </div>
 
       {briefing.topReporter && (
-        <div className="mt-3 bg-white/10 rounded-xl px-4 py-2 text-sm">
+        <div className="mt-3 bg-white/10 rounded-xl px-4 py-2 text-sm relative">
           🏆 오늘의 제보왕: <strong>{briefing.topReporter}</strong>
         </div>
       )}
 
       {briefing.hotDistrict && (
-        <div className="mt-2 bg-white/10 rounded-xl px-4 py-2 text-sm">
+        <div className="mt-2 bg-white/10 rounded-xl px-4 py-2 text-sm relative">
           🔥 관심 지역: <strong>{briefing.hotDistrict}</strong>
         </div>
       )}
 
       {briefing.tips && (
-        <div className="mt-2 bg-white/10 rounded-xl px-4 py-2 text-sm">
+        <div className="mt-2 bg-white/10 rounded-xl px-4 py-2 text-sm relative">
           💡 {briefing.tips}
+        </div>
+      )}
+
+      {briefing.model && (
+        <div className="mt-3 pt-3 border-t border-white/20 text-[10px] text-emerald-200 text-right relative">
+          ⚡ {briefing.model}
         </div>
       )}
     </div>
