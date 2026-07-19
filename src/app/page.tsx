@@ -14,7 +14,7 @@ import AdminPanel from '@/components/AdminPanel'
 const Map = dynamic(() => import('@/components/Map'), { ssr: false })
 
 export default function Home() {
-  const { user, reports, foodShares } = useApp()
+  const { user, reports, foodShares, isFirebaseReady, refreshData } = useApp()
   const [showReportForm, setShowReportForm] = useState(false)
   const [showFoodForm, setShowFoodForm] = useState(false)
   const [clickPos, setClickPos] = useState<{ lat: number; lng: number; address?: string } | null>(null)
@@ -93,6 +93,16 @@ export default function Home() {
             📸 제보하기
           </button>
         </div>
+      </div>
+
+      <div className="flex items-center justify-between text-xs text-gray-400">
+        <span>
+          {isFirebaseReady ? '✅ Firebase 연결됨' : '⏳ Firebase 연결 중...'} · 
+          제보 {reports.length}개 · 나눔 {foodShares.filter(f => f.status === 'available').length}개
+        </span>
+        <button onClick={refreshData} className="text-gray-400 hover:text-emerald-600 px-2 py-1">
+          🔄
+        </button>
       </div>
 
       <MissionBanner />

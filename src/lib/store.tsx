@@ -1,25 +1,10 @@
 'use client'
 
-import { useState, useEffect, createContext, useContext, ReactNode, useCallback } from 'react'
+import { useState, useEffect, createContext, useContext, ReactNode, useCallback, useRef } from 'react'
 import { v4 as uuidv4 } from 'uuid'
-import { User, Report, FoodShare, Chat, ChatMessage } from './types'
+import { User, Report, FoodShare, Chat } from './types'
 import { useToast } from '@/components/Toast'
-import { db } from './firebase'
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  addDoc,
-  doc,
-  updateDoc,
-  deleteDoc,
-  getDocs,
-  Timestamp,
-  limit,
-  where,
-} from 'firebase/firestore'
-import { generateSeedData } from './seed'
+import { restGetDocs, restAddDoc, restUpdateDoc, restDeleteDoc, hasFirebaseKeys } from './firebase'
 
 interface AppState {
   user: User | null
@@ -43,6 +28,7 @@ interface AppContextType extends AppState {
   createChat: (foodId: string, sellerId: string, sellerNickname: string, foodProductName: string) => Promise<string>
   sendMessage: (chatId: string, text: string) => Promise<void>
   markChatRead: (chatId: string) => Promise<void>
+  refreshData: () => Promise<void>
 }
 
 const AppContext = createContext<AppContextType | null>(null)
@@ -105,12 +91,6 @@ function cleanData(obj: Record<string, any>): Record<string, any> {
   return result
 }
 
-function toDate(ts: any): number {
-  if (ts?.toMillis) return ts.toMillis()
-  if (typeof ts === 'number') return ts
-  return 0
-}
-
 export function AppProvider({ children }: { children: ReactNode }) {
   const toast = useToast()
   const [user, setUser] = useState<User | null>(null)
@@ -119,72 +99,52 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [chats, setChats] = useState<Chat[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isFirebaseReady, setIsFirebaseReady] = useState(false)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const refreshInProgress = useRef(false)
+
+  const refreshData = useCallback(async () => {
+    if (refreshInProgress.current) return
+    refreshInProgress.current = true
+    try {
+      const [rawReports, rawFoodShares, rawChats] = await Promise.all([
+        restGetDocs('reports', { orderBy: 'createdAt', desc: true, limit: 200 }),
+        restGetDocs('foodShares', { orderBy: 'createdAt', desc: true, limit: 100 }),
+        restGetDocs('chats', { orderBy: 'createdAt', desc: true, limit: 50 }),
+      ])
+      setReports(rawReports as Report[])
+      setFoodShares(rawFoodShares as FoodShare[])
+      setChats(rawChats.map((c: any) => ({
+        ...c,
+        lastMessageAt: c.lastMessageAt || undefined,
+        lastReadBySeller: c.lastReadBySeller || undefined,
+        lastReadByBuyer: c.lastReadByBuyer || undefined,
+      })) as Chat[])
+      setIsFirebaseReady(true)
+    } catch (e) {
+      console.error('restGetDocs error:', e)
+    } finally {
+      refreshInProgress.current = false
+    }
+  }, [])
 
   useEffect(() => {
     const saved = loadUser()
     if (saved) setUser(saved)
     setIsLoading(false)
-  }, [])
+
+    if (hasFirebaseKeys) {
+      refreshData()
+      pollRef.current = setInterval(refreshData, 30000)
+    }
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current)
+    }
+  }, [refreshData])
 
   useEffect(() => {
     saveUser(user)
   }, [user])
-
-  useEffect(() => {
-    if (!db) {
-      setIsFirebaseReady(false)
-      return
-    }
-    setIsFirebaseReady(true)
-
-    let seeded = false
-
-    const reportsQuery = query(collection(db, 'reports'), orderBy('createdAt', 'desc'), limit(200))
-    const unsubReports = onSnapshot(reportsQuery, (snapshot) => {
-      const list: Report[] = snapshot.docs.map(d => {
-        const d2 = d.data() as any
-        return { ...d2, id: d.id, createdAt: toDate(d2.createdAt) } as Report
-      })
-      setReports(list)
-
-      if (!seeded && list.length === 0) {
-        seeded = true
-        const seed = generateSeedData()
-        seed.reports.forEach(r => {
-          addDoc(collection(db!, 'reports'), { ...r, createdAt: Timestamp.now() })
-        })
-        seed.foodShares.forEach(f => {
-          addDoc(collection(db!, 'foodShares'), { ...f, createdAt: Timestamp.now() })
-        })
-      }
-    }, (err) => {
-      console.error('Firestore reports error:', err)
-    })
-
-    const foodQuery = query(collection(db, 'foodShares'), orderBy('createdAt', 'desc'), limit(100))
-    const unsubFood = onSnapshot(foodQuery, (snapshot) => {
-      const list: FoodShare[] = snapshot.docs.map(d => {
-        const d2 = d.data() as any
-        return { ...d2, id: d.id, createdAt: toDate(d2.createdAt) } as FoodShare
-      })
-      setFoodShares(list)
-    }, (err) => {
-      console.error('Firestore foodShares error:', err)
-    })
-
-    const chatsQuery = query(collection(db, 'chats'), orderBy('createdAt', 'desc'), limit(50))
-    const unsubChats = onSnapshot(chatsQuery, (snapshot) => {
-      const list: Chat[] = snapshot.docs.map(d => {
-        const d2 = d.data() as any
-        return { ...d2, id: d.id, createdAt: toDate(d2.createdAt), lastMessageAt: toDate(d2.lastMessageAt), lastReadBySeller: d2.lastReadBySeller != null ? toDate(d2.lastReadBySeller) : undefined, lastReadByBuyer: d2.lastReadByBuyer != null ? toDate(d2.lastReadByBuyer) : undefined } as Chat
-      })
-      setChats(list)
-    }, (err) => {
-      console.error('Firestore chats error:', err)
-    })
-
-    return () => { unsubReports(); unsubFood(); unsubChats() }
-  }, [])
 
   const login = (nickname: string, pin: string) => {
     const existing = findAuthUser(nickname)
@@ -194,10 +154,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       if (existing.pinHash !== hashed) {
         throw new Error('PIN이 일치하지 않습니다')
       }
-      const restored: User = {
-        ...existing,
-      }
-      setUser(restored)
+      setUser({ ...existing })
     } else {
       const newUser: User = {
         id: uuidv4(),
@@ -220,20 +177,17 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ...input,
       userId: user.id,
       nickname: user.nickname,
-      createdAt: Timestamp.now(),
+      createdAt: new Date().toISOString(),
     }
     const data = cleanData(raw)
-    if (db && isFirebaseReady) {
-      try {
-        await addDoc(collection(db, 'reports'), data)
-        setUser(prev => prev ? { ...prev, points: prev.points + 10 } : prev)
-        toast('제보 완료! +10P', '📸')
-      } catch (e: any) {
-        console.error('Failed to add report:', e)
-        toast(`제보 실패: ${e?.message || '알 수 없는 오류'}`, '❌')
-      }
-    } else {
-      toast('Firebase가 연결되지 않았습니다. 환경 변수를 확인해주세요.', '⚠️')
+    try {
+      await restAddDoc('reports', data)
+      setUser(prev => prev ? { ...prev, points: prev.points + 10 } : prev)
+      toast('제보 완료! +10P', '📸')
+      refreshData()
+    } catch (e: any) {
+      console.error('Failed to add report:', e)
+      toast(`제보 실패: ${e?.message || '알 수 없는 오류'}`, '❌')
     }
   }
 
@@ -244,19 +198,16 @@ export function AppProvider({ children }: { children: ReactNode }) {
       userId: user.id,
       nickname: user.nickname,
       status: 'available',
-      createdAt: Timestamp.now(),
+      createdAt: new Date().toISOString(),
     }
     const data = cleanData(raw)
-    if (db && isFirebaseReady) {
-      try {
-        await addDoc(collection(db, 'foodShares'), data)
-        toast('나눔 등록 완료!', '🍲')
-      } catch (e) {
-        console.error('Failed to add food share:', e)
-        toast('등록 실패. 다시 시도해주세요.', '❌')
-      }
-    } else {
-      toast('Firebase가 연결되지 않았습니다.', '⚠️')
+    try {
+      await restAddDoc('foodShares', data)
+      toast('나눔 등록 완료!', '🍲')
+      refreshData()
+    } catch (e: any) {
+      console.error('Failed to add food share:', e)
+      toast(`등록 실패: ${e?.message || '알 수 없는 오류'}`, '❌')
     }
   }
 
@@ -266,22 +217,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
     if (!food || food.status !== 'available') return false
     if (user.points < food.price) return false
 
-    if (db && isFirebaseReady) {
-      try {
-        await updateDoc(doc(db, 'foodShares', foodId), {
-          status: 'sold',
-          buyerId: user.id,
-        })
-        setUser(prev => prev ? { ...prev, points: prev.points - food.price } : prev)
-        toast(`${food.productName} 구매 완료!`, '🎉')
-        return true
-      } catch (e) {
-        console.error('Failed to buy food:', e)
-        toast('구매 실패. 다시 시도해주세요.', '❌')
-        return false
-      }
-    } else {
-      toast('Firebase가 연결되지 않았습니다.', '⚠️')
+    try {
+      await restUpdateDoc('foodShares', foodId, { status: 'sold', buyerId: user.id })
+      setUser(prev => prev ? { ...prev, points: prev.points - food.price } : prev)
+      toast(`${food.productName} 구매 완료!`, '🎉')
+      refreshData()
+      return true
+    } catch (e: any) {
+      console.error('Failed to buy food:', e)
+      toast(`구매 실패: ${e?.message || '알 수 없는 오류'}`, '❌')
       return false
     }
   }
@@ -291,41 +235,42 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const deleteReport = async (id: string) => {
-    if (!db || !isFirebaseReady) return
     try {
-      await deleteDoc(doc(db, 'reports', id))
+      await restDeleteDoc('reports', id)
+      refreshData()
     } catch (e) {
       console.error('Failed to delete report:', e)
     }
   }
 
   const deleteFoodShare = async (id: string) => {
-    if (!db || !isFirebaseReady) return
     try {
-      await deleteDoc(doc(db, 'foodShares', id))
+      await restDeleteDoc('foodShares', id)
+      refreshData()
     } catch (e) {
       console.error('Failed to delete food share:', e)
     }
   }
 
   const toggleReportStatus = async (id: string) => {
-    if (!user || !db || !isFirebaseReady) return
+    if (!user) return
     const report = reports.find(r => r.id === id)
     if (!report) return
     const newStatus = report.status === 'open' ? 'resolved' : 'open'
     try {
-      await updateDoc(doc(db, 'reports', id), { status: newStatus })
+      await restUpdateDoc('reports', id, { status: newStatus })
+      refreshData()
     } catch (e) {
       console.error('Failed to toggle report status:', e)
     }
   }
 
   const createChat = async (foodId: string, sellerId: string, sellerNickname: string, foodProductName: string): Promise<string> => {
-    if (!user || !db || !isFirebaseReady) return ''
+    if (!user) return ''
     const existing = chats.find(c => c.foodId === foodId && c.buyerId === user.id)
     if (existing) return existing.id
     try {
-      const ref = await addDoc(collection(db, 'chats'), {
+      const chatId = await restAddDoc('chats', {
         foodId,
         foodProductName,
         sellerId,
@@ -333,10 +278,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
         buyerId: user.id,
         buyerNickname: user.nickname,
         participants: [sellerId, user.id],
-        createdAt: Timestamp.now(),
+        createdAt: new Date().toISOString(),
       })
       toast('채팅방이 개설되었습니다', '💬')
-      return ref.id
+      refreshData()
+      return chatId
     } catch (e) {
       console.error('Failed to create chat:', e)
       toast('채팅방 개설 실패', '❌')
@@ -345,17 +291,19 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const sendMessage = async (chatId: string, text: string) => {
-    if (!user || !db || !isFirebaseReady || !text.trim()) return
+    if (!user || !text.trim()) return
     try {
-      await addDoc(collection(db, 'chats', chatId, 'messages'), {
+      const ts = new Date().toISOString()
+      await restAddDoc(`chats/${chatId}/messages`, {
         senderId: user.id,
         text: text.trim(),
-        createdAt: Timestamp.now(),
+        createdAt: ts,
       })
-      await updateDoc(doc(db, 'chats', chatId), {
+      await restUpdateDoc('chats', chatId, {
         lastMessage: text.trim(),
-        lastMessageAt: Timestamp.now(),
+        lastMessageAt: ts,
       })
+      refreshData()
     } catch (e) {
       console.error('Failed to send message:', e)
       toast('메시지 전송 실패', '❌')
@@ -363,12 +311,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
   }
 
   const markChatRead = async (chatId: string) => {
-    if (!user || !db || !isFirebaseReady) return
+    if (!user) return
     const chat = chats.find(c => c.id === chatId)
     if (!chat) return
     const field = user.id === chat.sellerId ? 'lastReadBySeller' : 'lastReadByBuyer'
     try {
-      await updateDoc(doc(db, 'chats', chatId), { [field]: Timestamp.now() })
+      await restUpdateDoc('chats', chatId, { [field]: new Date().toISOString() })
     } catch (e) {
       console.error('Failed to mark chat read:', e)
     }
@@ -377,8 +325,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={{
       user, reports, foodShares, chats, isLoading, isFirebaseReady,
-      login, logout, addReport, addFoodShare, buyFood, addPoints, deleteReport, deleteFoodShare,
-      toggleReportStatus, createChat, sendMessage, markChatRead,
+      login, logout, addReport, addFoodShare, buyFood, addPoints,
+      deleteReport, deleteFoodShare, toggleReportStatus,
+      createChat, sendMessage, markChatRead, refreshData,
     }}>
       {children}
     </AppContext.Provider>

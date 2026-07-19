@@ -2,16 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useApp } from '@/lib/store'
-import { FoodShare } from '@/lib/types'
-import { db } from '@/lib/firebase'
-import {
-  collection,
-  query,
-  orderBy,
-  onSnapshot,
-  Timestamp,
-} from 'firebase/firestore'
-import { ChatMessage } from '@/lib/types'
+import { FoodShare, ChatMessage } from '@/lib/types'
+import { restGetDocs } from '@/lib/firebase'
 
 interface Props {
   food: FoodShare
@@ -23,6 +15,7 @@ export default function ChatRoom({ food, onClose }: Props) {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [text, setText] = useState('')
   const bottomRef = useRef<HTMLDivElement>(null)
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const chat = chats.find(c => c.foodId === food.id && (c.buyerId === user?.id || c.sellerId === user?.id))
   const chatId = chat?.id
@@ -30,16 +23,18 @@ export default function ChatRoom({ food, onClose }: Props) {
   const otherNickname = user?.id === food.userId ? chat?.buyerNickname : food.nickname
 
   useEffect(() => {
-    if (!chatId || !db) return
-    const q = query(collection(db, 'chats', chatId, 'messages'), orderBy('createdAt', 'asc'))
-    const unsub = onSnapshot(q, (snapshot) => {
-      const list: ChatMessage[] = snapshot.docs.map(d => {
-        const d2 = d.data() as any
-        return { ...d2, id: d.id, createdAt: d2.createdAt?.toMillis?.() || Date.now() }
-      })
-      setMessages(list)
-    })
-    return () => unsub()
+    if (!chatId) return
+    const load = async () => {
+      try {
+        const raw = await restGetDocs(`chats/${chatId}/messages`, { orderBy: 'createdAt', desc: false })
+        setMessages(raw as ChatMessage[])
+      } catch (e) {
+        console.error('Failed to load messages:', e)
+      }
+    }
+    load()
+    pollRef.current = setInterval(load, 5000)
+    return () => { if (pollRef.current) clearInterval(pollRef.current) }
   }, [chatId])
 
   useEffect(() => {

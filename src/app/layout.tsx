@@ -35,6 +35,9 @@ export default function RootLayout({
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
         <meta name="theme-color" content="#059669" />
+        <meta httpEquiv="cache-control" content="no-cache, no-store, must-revalidate" />
+        <meta httpEquiv="pragma" content="no-cache" />
+        <meta httpEquiv="expires" content="0" />
         <link rel="icon" href="/favicon.ico" />
         <link rel="apple-touch-icon" href="/icons/icon-192.png" />
       </head>

@@ -12,6 +12,30 @@ export default function ImageUpload({ onImage, currentUrl }: Props) {
   const [loading, setLoading] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  const compressImage = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.onload = () => {
+        const MAX = 800
+        let w = img.width
+        let h = img.height
+        if (w > MAX || h > MAX) {
+          const ratio = Math.min(MAX / w, MAX / h)
+          w = Math.round(w * ratio)
+          h = Math.round(h * ratio)
+        }
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')!
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve(canvas.toDataURL('image/jpeg', 0.7))
+      }
+      img.onerror = reject
+      img.src = URL.createObjectURL(file)
+    })
+  }
+
   const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
@@ -22,14 +46,15 @@ export default function ImageUpload({ onImage, currentUrl }: Props) {
     }
 
     setLoading(true)
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const result = ev.target?.result as string
-      setPreview(result)
-      onImage(result)
+    try {
+      const compressed = await compressImage(file)
+      setPreview(compressed)
+      onImage(compressed)
+    } catch (err) {
+      alert('이미지 처리 중 오류가 발생했습니다')
+    } finally {
       setLoading(false)
     }
-    reader.readAsDataURL(file)
   }
 
   return (
